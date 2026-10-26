@@ -1,0 +1,199 @@
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+import pandas as pd
+from core.logger import log
+
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / "jobs.db"
+
+class Storage:
+    def __init__(self, db_path: Path = DB_PATH):
+        self.db_path = db_path
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS applied_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL,
+                    job_id TEXT,
+                    job_title TEXT NOT NULL,
+                    company TEXT,
+                    location TEXT,
+                    job_url TEXT UNIQUE NOT NULL,
+                    status TEXT NOT NULL,
+                    notes TEXT,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scraped_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL,
+                    job_id TEXT,
+                    job_title TEXT NOT NULL,
+                    company TEXT,
+                    location TEXT,
+                    experience TEXT,
+                    salary TEXT,
+                    job_url TEXT UNIQUE NOT NULL,
+                    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS profile_refreshes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL,
+                    action_summary TEXT,
+                    refreshed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+
+    def is_already_applied(self, platform: str, job_url: str, job_id: Optional[str] = None) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if job_id:
+                cursor.execute(
+                    "SELECT 1 FROM applied_jobs WHERE platform = ? AND (job_url = ? OR job_id = ?)",
+                    (platform, job_url, job_id)
+                )
+            else:
+                cursor.execute(
+                    "SELECT 1 FROM applied_jobs WHERE platform = ? AND job_url = ?",
+                    (platform, job_url)
+                )
+            return cursor.fetchone() is not None
+
+    def record_applied_job(
+        self,
+        platform: str,
+        job_title: str,
+        company: str,
+        job_url: str,
+        status: str,
+        job_id: Optional[str] = None,
+        location: Optional[str] = None,
+        notes: Optional[str] = None
+    ) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO applied_jobs 
+                    (platform, job_id, job_title, company, location, job_url, status, notes, applied_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    platform,
+                    job_id or "",
+                    job_title,
+                    company or "Unknown",
+                    location or "",
+                    job_url,
+                    status,
+                    notes or "",
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+                conn.commit()
+                return True
+            except Exception as e:
+                log.error(f"Failed to record applied job: {e}")
+                return False
+
+    def record_scraped_job(
+        self,
+        platform: str,
+        job_title: str,
+        company: str,
+        job_url: str,
+        job_id: Optional[str] = None,
+        location: Optional[str] = None,
+        experience: Optional[str] = None,
+        salary: Optional[str] = None
+    ) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO scraped_jobs
+                    (platform, job_id, job_title, company, location, experience, salary, job_url, scraped_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    platform,
+                    job_id or "",
+                    job_title,
+                    company,
+                    location,
+                    experience,
+                    salary,
+                    job_url,
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
+                conn.commit()
+                return True
+            except Exception as e:
+                log.error(f"Failed to record scraped job: {e}")
+                return False
+
+    def record_profile_refresh(self, platform: str, summary: str):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO profile_refreshes (platform, action_summary) VALUES (?, ?)",
+                (platform, summary)
+            )
+            conn.commit()
+
+    def get_stats(self) -> Dict[str, any]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT platform, status, count(*) FROM applied_jobs GROUP BY platform, status")
+            applied_stats = cursor.fetchall()
+            
+            cursor.execute("SELECT platform, count(*) FROM scraped_jobs GROUP BY platform")
+            scraped_stats = cursor.fetchall()
+
+            cursor.execute("SELECT platform, max(refreshed_at) FROM profile_refreshes GROUP BY platform")
+            refresh_stats = cursor.fetchall()
+
+            return {
+                "applied": [dict(row) for row in applied_stats],
+                "scraped": [dict(row) for row in scraped_stats],
+                "refreshes": [dict(row) for row in refresh_stats]
+            }
+
+    def export_all(self, target_dir: Path) -> Dict[str, str]:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        with self._get_connection() as conn:
+            df_applied = pd.read_sql_query("SELECT * FROM applied_jobs ORDER BY applied_at DESC", conn)
+            df_scraped = pd.read_sql_query("SELECT * FROM scraped_jobs ORDER BY scraped_at DESC", conn)
+
+        csv_applied_path = target_dir / f"applied_jobs_{timestamp}.csv"
+        excel_path = target_dir / f"job_report_{timestamp}.xlsx"
+
+        df_applied.to_csv(csv_applied_path, index=False)
+        
+        with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+            df_applied.to_excel(writer, sheet_name="Applied Jobs", index=False)
+            df_scraped.to_excel(writer, sheet_name="Scraped Jobs", index=False)
+
+        return {
+            "csv": str(csv_applied_path),
+            "excel": str(excel_path)
+        }
+
+db = Storage()

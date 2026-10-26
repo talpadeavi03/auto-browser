@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Browser persistent profiles & credentials
+data/browser_profile/
+data/jobs.db
+data/rpa.log
+data/exports/*.csv
+data/exports/*.xlsx
+.env
+
+# Playwright cache
+.cache/

@@ -1,0 +1,62 @@
+# RPA Auto-Browser Configuration
+browser:
+  headless: false           # Set to true for silent background running; false to watch the browser
+  slow_mo_ms: 60            # Milliseconds delay between actions for human-like execution
+  user_data_dir: "data/browser_profile" # Persistent browser session (stores cookies/logins)
+  timeout_ms: 30000
+
+# Personal Application Info for Form Filling
+profile:
+  first_name: "Applicant"
+  last_name: "User"
+  email: "user@example.com"
+  phone: "9876543210"
+  current_location: "Bengaluru, Karnataka, India"
+  years_of_experience: 3
+  current_salary_lpa: "12"
+  expected_salary_lpa: "18"
+  notice_period_days: 15
+  require_visa_sponsorship: false
+  authorized_to_work: true
+  resume_path: "data/resumes/resume.pdf"
+
+# LinkedIn Automation Settings
+linkedin:
+  enabled: true
+  search_keywords:
+    - "Python Developer"
+    - "Full Stack Developer"
+    - "Software Engineer"
+  locations:
+    - "India"
+    - "Remote"
+    - "Bengaluru"
+  experience_levels:
+    - "Entry level"
+    - "Associate"
+    - "Mid-Senior level"
+  date_posted: "past_week" # past_24h, past_week, past_month, any
+  easy_apply_only: true
+  max_applications_per_run: 15
+  skip_screening_questions_if_complex: true # Skips if form asks long custom essay questions
+
+# Naukri.com Automation Settings
+naukri:
+  enabled: true
+  profile_refresh:
+    enabled: true
+    interval_hours: 4       # Refresh frequency to rank #1 in recruiter search
+    tweak_headline_dot: true # Adds/removes a trailing period to trigger profile update timestamp
+  search_keywords:
+    - "Python Developer"
+    - "Software Engineer"
+  locations:
+    - "Bengaluru"
+    - "Remote"
+  experience_years: 3
+  max_applications_per_run: 15
+
+# Export & Reporting
+reporting:
+  auto_export_csv: true
+  export_dir: "data/exports"

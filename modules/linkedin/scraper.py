@@ -1,0 +1,169 @@
+import urllib.parse
+from typing import Dict, List, Optional
+from playwright.sync_api import Page
+from config.config import settings
+from core.browser import BrowserManager
+from core.logger import log
+from core.storage import db
+
+EXP_MAP = {
+    "internship": "1",
+    "entry level": "2",
+    "associate": "3",
+    "mid-senior level": "4",
+    "director": "5",
+    "executive": "6",
+}
+
+DATE_MAP = {
+    "past_24h": "r86400",
+    "past_week": "r604800",
+    "past_month": "r2592000",
+}
+
+def construct_linkedin_search_url(
+    keyword: str,
+    location: str,
+    easy_apply_only: bool = True,
+    date_posted: str = "past_week",
+    experience_levels: Optional[List[str]] = None
+) -> str:
+    """Constructs LinkedIn Jobs search URL with targeted filters."""
+    params = {
+        "keywords": keyword,
+        "location": location,
+        "sortBy": "R", # Most relevant
+    }
+
+    if easy_apply_only:
+        params["f_AL"] = "true"
+
+    if date_posted in DATE_MAP:
+        params["f_TPR"] = DATE_MAP[date_posted]
+
+    if experience_levels:
+        exp_codes = [EXP_MAP[e.lower()] for e in experience_levels if e.lower() in EXP_MAP]
+        if exp_codes:
+            params["f_E"] = ",".join(exp_codes)
+
+    return f"https://www.linkedin.com/jobs/search/?{urllib.parse.urlencode(params)}"
+
+def is_linkedin_logged_in(page: Page) -> bool:
+    """Verifies whether user is actively authenticated on LinkedIn."""
+    try:
+        page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
+        BrowserManager.human_delay(2.0, 3.0)
+        current_url = page.url
+        if "login" in current_url or "checkpoint" in current_url or "authwall" in current_url:
+            return False
+
+        auth_indicators = [
+            ".global-nav__me-photo",
+            "img.global-nav__me-photo",
+            "div.feed-identity-module",
+            "nav.global-nav",
+        ]
+        for sel in auth_indicators:
+            if page.locator(sel).first.is_visible(timeout=3000):
+                return True
+        return "linkedin.com/feed" in current_url
+    except Exception as e:
+        log.debug(f"Error checking LinkedIn login status: {e}")
+        return False
+
+def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int = 25) -> List[Dict[str, str]]:
+    """Scrapes job cards from LinkedIn search results."""
+    search_url = construct_linkedin_search_url(
+        keyword=keyword,
+        location=location,
+        easy_apply_only=settings.linkedin.easy_apply_only,
+        date_posted=settings.linkedin.date_posted,
+        experience_levels=settings.linkedin.experience_levels
+    )
+
+    log.info(f"[cyan]Searching LinkedIn: '{keyword}' in '{location}' -> {search_url}[/cyan]")
+    scraped = []
+
+    try:
+        page.goto(search_url, timeout=30000, wait_until="domcontentloaded")
+        BrowserManager.human_delay(2.5, 4.0)
+
+        # Scroll down incrementally to trigger dynamic listing load
+        for _ in range(5):
+            BrowserManager.human_scroll(page, steps=2, distance=500)
+            BrowserManager.human_delay(1.0, 2.0)
+
+        # Target job card containers
+        job_card_selectors = [
+            "li.jobs-search-results__list-item",
+            "div.job-card-container",
+            "div.job-card-job-posting-card-wrapper",
+        ]
+
+        cards = []
+        for sel in job_card_selectors:
+            elements = page.locator(sel).all()
+            if elements:
+                cards = elements
+                break
+
+        log.info(f"Found {len(cards)} LinkedIn job cards in view.")
+
+        for card in cards:
+            if len(scraped) >= max_jobs:
+                break
+
+            try:
+                # Job ID
+                job_id = card.get_attribute("data-occludable-job-id") or ""
+                if not job_id:
+                    urn = card.get_attribute("data-job-id") or ""
+                    job_id = urn.split(":")[-1] if urn else ""
+
+                # Title
+                title_elem = card.locator("a.job-card-list__title--link, a.job-card-container__link, .artdeco-entity-lockup__title a").first
+                if not title_elem.is_visible():
+                    continue
+
+                job_title = title_elem.inner_text().strip()
+                href = title_elem.get_attribute("href") or ""
+                clean_url = href.split("?")[0] if href else ""
+                if not clean_url and job_id:
+                    clean_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+
+                # Company
+                comp_elem = card.locator(".artdeco-entity-lockup__subtitle, .job-card-container__primary-description").first
+                company = comp_elem.inner_text().strip() if comp_elem.is_visible() else "Unknown"
+
+                # Location
+                loc_elem = card.locator(".job-card-container__metadata-item, .artdeco-entity-lockup__caption").first
+                loc = loc_elem.inner_text().strip() if loc_elem.is_visible() else location
+
+                job_data = {
+                    "platform": "linkedin",
+                    "job_id": job_id,
+                    "job_title": job_title,
+                    "company": company,
+                    "location": loc,
+                    "job_url": clean_url,
+                }
+
+                db.record_scraped_job(
+                    platform="linkedin",
+                    job_id=job_id,
+                    job_title=job_title,
+                    company=company,
+                    location=loc,
+                    job_url=clean_url
+                )
+
+                scraped.append(job_data)
+            except Exception as card_err:
+                log.debug(f"Error parsing LinkedIn job card: {card_err}")
+                continue
+
+    except Exception as e:
+        log.error(f"[red]Error while scraping LinkedIn: {e}[/red]")
+
+    log.info(f"[green]✓ Completed LinkedIn scrape: {len(scraped)} jobs retrieved for '{keyword}'.[/green]")
+    return scraped
