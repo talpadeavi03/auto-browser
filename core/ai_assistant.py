@@ -17,7 +17,10 @@ class AIAssistant:
     accurately based on the candidate's actual profile and resume.
     """
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        raw_key = api_key or os.getenv("GEMINI_API_KEY")
+        if raw_key and ("your_gemini" in raw_key or "your_" in raw_key):
+            raw_key = None
+        self.api_key = raw_key
         self.client = None
         if self.api_key and GENAI_AVAILABLE:
             try:

@@ -149,8 +149,8 @@ def auto_login_linkedin(page: Page) -> bool:
     user = os.getenv("LINKEDIN_USERNAME") or getattr(settings.linkedin, "username", None)
     pwd = os.getenv("LINKEDIN_PASSWORD") or getattr(settings.linkedin, "password", None)
 
-    if not user or not pwd:
-        log.debug("LinkedIn credentials not found in environment (LINKEDIN_USERNAME / LINKEDIN_PASSWORD).")
+    if not user or not pwd or "example.com" in user or "your_" in user or "your_" in pwd:
+        log.debug("LinkedIn real credentials not set in .env (contains template placeholder).")
         return False
 
     log.info(f"[cyan]Attempting autonomous LinkedIn credential login for: {user}...[/cyan]")
@@ -220,8 +220,8 @@ def auto_login_naukri(page: Page) -> bool:
     user = os.getenv("NAUKRI_USERNAME")
     pwd = os.getenv("NAUKRI_PASSWORD")
 
-    if not user or not pwd:
-        log.debug("Naukri credentials not found in environment (NAUKRI_USERNAME / NAUKRI_PASSWORD).")
+    if not user or not pwd or "example.com" in user or "your_" in user or "your_" in pwd:
+        log.debug("Naukri real credentials not set in .env (contains template placeholder).")
         return False
 
     log.info(f"[cyan]Attempting autonomous Naukri credential login for: {user}...[/cyan]")
