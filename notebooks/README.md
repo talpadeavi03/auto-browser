@@ -1,25 +1,39 @@
 # 🤖 Auto-Browser: Google Colab Training Pipeline (Option C)
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/talpadeavi03/auto-browser/blob/master/notebooks/train_colab.ipynb)
+
 This directory contains the complete end-to-end training pipeline to fine-tune your own specialized AI agent (`Qwen-2.5-1.5B-Instruct`) using **Free Google Colab T4 GPU**, and save the trained model for **FREE** to **Hugging Face Hub** or **Google Drive**.
 
 ---
 
-## 🚀 Quick Start (In 3 Steps)
+## 🔄 The Autonomous GitHub ↔ Colab Data Loop
 
-### Step 1: Export Your Application Interactions Dataset
-Run the auto-browser dataset exporter from your repository:
-```bash
-python main.py export-dataset
 ```
-This generates `data/training_dataset.jsonl` containing all recorded recruiter screening questions, form fields, and answers in ChatML/Alpaca instruction format.
+[24/7 Cloud Bot on GitHub Actions]
+              │
+              ▼ (Auto-applies to LinkedIn, Naukri, Keka)
+[Extracts & Saves interaction Q&A to data/jobs.db]
+              │
+              ▼ (Auto-exports to data/training_dataset.jsonl)
+[Pushes updated dataset back to GitHub master branch [skip ci]]
+              │
+              ▼ (Click "Open in Colab" Badge below)
+[Google Colab pulls latest dataset directly from GitHub repo]
+              │
+              ▼ (Fine-tunes Qwen-2.5-1.5B on Free T4 GPU in 3 mins)
+[Auto-pushes fine-tuned model to Hugging Face Hub (FREE)]
+```
 
 ---
 
-### Step 2: Open in Google Colab
-1. Go to [Google Colab](https://colab.research.google.com/).
-2. Click **File -> Upload notebook** and select `notebooks/train_colab.ipynb`.
-3. Change runtime type to **T4 GPU** (Runtime -> Change runtime type -> T4 GPU - Free).
-4. Run all cells (`Ctrl + F9`). Training takes **~3-5 minutes**!
+## 🚀 Quick Start (In 1 Click)
+
+1. Click the **[Open in Colab](https://colab.research.google.com/github/talpadeavi03/auto-browser/blob/master/notebooks/train_colab.ipynb)** badge above.
+2. Select **Runtime -> Change runtime type -> T4 GPU** (Free).
+3. Click **Run All** (`Ctrl + F9`).
+   * Colab automatically clones the repo and pulls the latest `data/training_dataset.jsonl` from GitHub!
+   * Fine-tunes the model in **3 to 5 minutes**.
+   * Pushes the trained adapter to your free **Hugging Face Hub** repository!
 
 ---
 

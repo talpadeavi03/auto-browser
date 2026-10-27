@@ -1,5 +1,8 @@
 # 🤖 Auto-Browser: Anti-Detect Job Application RPA Suite
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/talpadeavi03/auto-browser/blob/master/notebooks/train_colab.ipynb)
+[![CI/CD 24/7 Cloud Automation](https://github.com/talpadeavi03/auto-browser/actions/workflows/job-automation.yml/badge.svg)](https://github.com/talpadeavi03/auto-browser/actions)
+
 A resilient, stealth-enabled browser automation system tailored for **Naukri.com**, **LinkedIn**, and modern hiring portals. It automates repetitive job searches, 1-click applications, and profile ranking boosts without triggering bot detection or repeated 2FA challenges.
 
 ---

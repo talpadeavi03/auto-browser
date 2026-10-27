@@ -25,6 +25,8 @@ jobs:
   automation:
     name: Cloud RPA & Auto-Apply Worker
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -119,6 +121,22 @@ jobs:
           python main.py export || true
           python main.py export-dataset || true
           python main.py stats || true
+
+      - name: Auto-Sync Fresh ML Training Dataset to GitHub
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f data/training_dataset.jsonl ]; then
+            git add data/training_dataset.jsonl
+            if ! git diff --staged --quiet; then
+              git commit -m "data: auto-sync continuous ML dataset [skip ci]"
+              git push origin master
+              echo "✓ Successfully committed and pushed fresh training dataset to GitHub for Google Colab!"
+            else
+              echo "No new interaction dataset changes to commit."
+            fi
+          fi
 
       - name: Upload Application Reports, Database & ML Dataset Artifacts
         if: always()
