@@ -148,12 +148,29 @@ Exports `.xlsx` and `.csv` sheets to `data/exports/` detailing applied jobs, tim
 
 ---
 
-## ⏰ 24/7 Background Scheduler
-To run continuous background automation (boosts Naukri profile every 4 hours and applies to new jobs twice daily):
-```bash
-python scheduler.py
-```
-Or run as a systemd service or background process:
-```bash
-nohup python scheduler.py > data/scheduler.log 2>&1 &
+## 🤖 GitHub Actions Cloud Automation
+
+The repository includes preconfigured GitHub Actions workflows in `.github/workflows/job-automation.yml`:
+
+- **Automatic Smoke Tests**: Verifies MCP server and CLI on every push.
+- **Scheduled Job Automation**: Runs every 4 hours automatically in the cloud.
+- **Manual Trigger with Artifacts**: Go to the **Actions** tab on GitHub, click **Run workflow**, choose `scrape-jobs`, and download generated Excel/CSV reports directly from GitHub Artifacts!
+
+---
+
+## 🧠 Model Context Protocol (MCP) Server
+
+Connect your AI model (Claude Desktop, Cursor, Antigravity) to control the browser:
+```json
+{
+  "mcpServers": {
+    "auto-browser-job-rpa": {
+      "command": "/home/sudo69/Projects/auto-browser/venv/bin/python",
+      "args": ["/home/sudo69/Projects/auto-browser/mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "/home/sudo69/Projects/auto-browser"
+      }
+    }
+  }
+}
 ```

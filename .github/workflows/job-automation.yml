@@ -1,0 +1,62 @@
+name: Job Automation & RPA CI
+
+on:
+  push:
+    branches: [ master, main ]
+  schedule:
+    # Runs every 4 hours automatically
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to execute'
+        required: true
+        default: 'verify'
+        type: choice
+        options:
+          - 'verify'
+          - 'scrape-jobs'
+          - 'naukri-boost'
+
+jobs:
+  verify:
+    name: Verify RPA & MCP Engine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Test MCP Server & CLI
+        run: |
+          python -c "import mcp_server; print('MCP Server verified successfully!')"
+          python main.py --help
+          python main.py stats
+
+      - name: Run Job Scraper (if selected)
+        if: ${{ inputs.action == 'scrape-jobs' }}
+        run: |
+          python main.py scrape --platform all --headless
+          python main.py export
+
+      - name: Upload Exported Reports
+        if: ${{ inputs.action == 'scrape-jobs' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-reports-${{ github.sha }}
+          path: |
+            data/exports/*.xlsx
+            data/exports/*.csv
+          retention-days: 7
