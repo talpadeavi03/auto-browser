@@ -155,15 +155,10 @@ class BrowserManager:
 
         if cookies_to_load:
             try:
-                # Normalize cookie domains and security flags to guarantee cross-subdomain authentication
+                # Preserve original cookie domains and enforce secure transport
                 cleaned_cookies = []
                 for c in cookies_to_load:
                     c_clean = dict(c)
-                    d = c_clean.get("domain", "")
-                    if "linkedin.com" in d:
-                        c_clean["domain"] = ".linkedin.com"
-                    elif "naukri.com" in d:
-                        c_clean["domain"] = ".naukri.com"
                     if c_clean.get("sameSite") not in ["Strict", "Lax", "None"]:
                         c_clean["sameSite"] = "None"
                     c_clean["secure"] = True
