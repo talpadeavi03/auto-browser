@@ -153,8 +153,22 @@ class BrowserManager:
 
         if cookies_to_load:
             try:
-                self.context.add_cookies(cookies_to_load)
-                log.info(f"[bold green]✓ Restored {len(cookies_to_load)} authenticated session cookies![/bold green]")
+                # Normalize cookie domains and security flags to guarantee cross-subdomain authentication
+                cleaned_cookies = []
+                for c in cookies_to_load:
+                    c_clean = dict(c)
+                    d = c_clean.get("domain", "")
+                    if "linkedin.com" in d:
+                        c_clean["domain"] = ".linkedin.com"
+                    elif "naukri.com" in d:
+                        c_clean["domain"] = ".naukri.com"
+                    if c_clean.get("sameSite") not in ["Strict", "Lax", "None"]:
+                        c_clean["sameSite"] = "None"
+                    c_clean["secure"] = True
+                    cleaned_cookies.append(c_clean)
+
+                self.context.add_cookies(cleaned_cookies)
+                log.info(f"[bold green]✓ Restored {len(cleaned_cookies)} authenticated session cookies (domains normalized)![/bold green]")
             except Exception as e:
                 log.warning(f"Could not restore session cookies: {e}")
 

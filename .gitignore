@@ -18,6 +18,7 @@ data/browser_profile/
 data/jobs.db
 data/rpa.log
 *.log
+logs/
 
 # Generated Exports & Screenshots
 data/exports/*

@@ -73,13 +73,12 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
             page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
             BrowserManager.human_delay(1.5, 2.5)
 
-        ensure_linkedin_english(page)
-
         current_url = page.url.lower()
-        if "login" in current_url or "checkpoint" in current_url or "authwall" in current_url:
+        if any(x in current_url for x in ["login", "checkpoint", "authwall", "uas/login"]):
             return False
 
-        if any(x in current_url for x in ["/feed", "/mynetwork", "/jobs", "/in/"]):
+        if any(x in current_url for x in ["/feed", "/mynetwork", "/jobs", "/in/", "/mypreferences"]):
+            ensure_linkedin_english(page)
             return True
 
         auth_indicators = [
@@ -87,11 +86,17 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
             "img.global-nav__me-photo",
             "div.feed-identity-module",
             "nav.global-nav",
+            "header.global-nav",
         ]
         for sel in auth_indicators:
-            if page.locator(sel).first.is_visible(timeout=1000):
+            if page.locator(sel).first.is_visible(timeout=1500):
+                ensure_linkedin_english(page)
                 return True
-        return "linkedin.com/feed" in current_url
+
+        is_auth = ("linkedin.com" in current_url) and not any(x in current_url for x in ["login", "checkpoint", "authwall"])
+        if is_auth:
+            ensure_linkedin_english(page)
+        return is_auth
     except Exception as e:
         log.debug(f"Error checking LinkedIn login status: {e}")
         return False
