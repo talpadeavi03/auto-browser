@@ -104,9 +104,11 @@ class BrowserManager:
         executable_path = None
         if settings.browser.engine.lower() == "brave":
             brave_bin = find_brave_executable()
-            if brave_bin:
+            if brave_bin and not (self.headless and "flatpak" in brave_bin.lower()):
                 executable_path = brave_bin
                 log.info(f"[bold magenta]Using Brave Browser:[/bold magenta] {brave_bin}")
+            elif brave_bin and self.headless and "flatpak" in brave_bin.lower():
+                log.info("Flatpak Brave detected in headless mode. Using bundled Chromium to guarantee network sandbox stability.")
             else:
                 log.warning("Brave requested but executable not found. Falling back to bundled Chromium.")
 
