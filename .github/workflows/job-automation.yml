@@ -98,8 +98,8 @@ jobs:
           echo "Trigger event: ${{ github.event_name }}"
           ACTION="${{ inputs.action }}"
 
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "⏰ Running scheduled Profile Booster & Auto-Apply sequence..."
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ]; then
+            echo "⏰ Running Profile Booster & Auto-Apply sequence..."
             xvfb-run -a python main.py naukri-refresh || true
             xvfb-run -a python main.py linkedin-apply --limit 5 || true
             xvfb-run -a python main.py naukri-apply --limit 5 || true
@@ -117,9 +117,10 @@ jobs:
           fi
 
           python main.py export || true
+          python main.py export-dataset || true
           python main.py stats || true
 
-      - name: Upload Application Reports & Database Artifacts
+      - name: Upload Application Reports, Database & ML Dataset Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -127,5 +128,7 @@ jobs:
           path: |
             data/exports/*.xlsx
             data/exports/*.csv
+            data/exports/*.png
             data/jobs.db
+            data/training_dataset.jsonl
           retention-days: 14
