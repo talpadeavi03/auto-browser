@@ -25,6 +25,7 @@ from modules.naukri.scraper import scrape_naukri_jobs
 from modules.naukri.auto_apply import apply_to_naukri_job
 from modules.linkedin.scraper import scrape_linkedin_jobs, is_linkedin_logged_in
 from modules.linkedin.easy_apply import apply_to_linkedin_easy_apply
+from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import export_reports
 
 mcp = MCPServer(
@@ -50,6 +51,15 @@ def get_candidate_profile() -> Dict[str, Any]:
             "email": settings.profile.email,
             "phone": settings.profile.phone,
             "current_location": settings.profile.current_location,
+            "city": settings.profile.city,
+            "state": settings.profile.state,
+            "country": settings.profile.country,
+            "postal_code": settings.profile.postal_code,
+            "linkedin_url": settings.profile.linkedin_url,
+            "github_url": settings.profile.github_url,
+            "headline": settings.profile.headline,
+            "summary": settings.profile.summary,
+            "degree": settings.profile.degree,
             "years_of_experience": settings.profile.years_of_experience,
             "current_salary_lpa": settings.profile.current_salary_lpa,
             "expected_salary_lpa": settings.profile.expected_salary_lpa,
@@ -373,6 +383,38 @@ def generate_application_reports() -> Dict[str, str]:
     """
     files = export_reports()
     return files
+
+@mcp.tool()
+def apply_external_company_job(
+    job_url: str,
+    company: str,
+    job_title: str
+) -> Dict[str, Any]:
+    """
+    Autonomously navigates to ANY external company application page or ATS
+    (Greenhouse, Lever, Workday, BambooHR, SmartRecruiters, Ashby, PyjamaHR, or company career portals),
+    fills all candidate contact information, uploads candidate's PDF resume,
+    uses Gemini AI to answer custom screening questions, and completes the application.
+
+    Args:
+        job_url: Direct URL to the external job application or career portal page
+        company: Name of the company offering the role
+        job_title: Title of the job position
+    """
+    with get_browser() as browser:
+        page = browser.new_page()
+        res = UniversalATSApplier.apply(
+            page=page,
+            job_url=job_url,
+            job_title=job_title,
+            company=company
+        )
+        return {
+            "status": res,
+            "job_url": job_url,
+            "company": company,
+            "job_title": job_title
+        }
 
 if __name__ == "__main__":
     # Runs standard I/O transport for MCP clients (Claude Desktop, Cursor, Antigravity, etc.)

@@ -5,6 +5,7 @@ from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
 from core.ai_assistant import ai_assistant
+from modules.external.universal_apply import UniversalATSApplier
 
 def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
     """
@@ -44,17 +45,19 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
         # Check for external company site button
         external_btn = page.locator("button:has-text('Apply on company site'), a:has-text('Apply on company site')").first
         if external_btn.is_visible(timeout=1500):
-            log.info(f"Job redirects to external company website: {company}")
-            db.record_applied_job(
-                platform="naukri",
-                job_id=job_id,
-                job_title=job_title,
-                company=company,
-                job_url=job_url,
-                status="COMPANY_SITE",
-                notes="External company site apply"
-            )
-            return "COMPANY_SITE"
+            log.info(f"Job redirects to external company website: {company}. Launching Universal ATS Applier...")
+            try:
+                with page.context.expect_page(timeout=6000) as new_page_info:
+                    BrowserManager.safe_click(external_btn)
+                ext_page = new_page_info.value
+                ext_page.wait_for_load_state("domcontentloaded")
+                res = UniversalATSApplier.apply(ext_page, ext_page.url, job_title, company, job_id)
+                ext_page.close()
+                return res
+            except Exception as ext_err:
+                log.warning(f"Could not open external popup ({ext_err}). Trying in current tab...")
+                ext_url = external_btn.get_attribute("href") or page.url
+                return UniversalATSApplier.apply(page, ext_url, job_title, company, job_id)
 
         # Locate Naukri direct apply button
         apply_btn_selectors = [

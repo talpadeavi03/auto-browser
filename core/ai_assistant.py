@@ -35,11 +35,17 @@ class AIAssistant:
         return f"""
 Candidate Background:
 - Full Name: {settings.profile.first_name} {settings.profile.last_name}
+- Email: {settings.profile.email}
+- Phone: {settings.profile.phone}
+- LinkedIn: {settings.profile.linkedin_url}
+- GitHub: {settings.profile.github_url}
 - Profession: Cloud & DevOps Engineer / Platform Engineer
+- Headline: {settings.profile.headline}
+- Degree: {settings.profile.degree}
 - Primary Skills: AWS, Azure, GCP, Kubernetes, Docker, Terraform, CI/CD (GitHub Actions, GitLab CI, Jenkins), Linux Administration, Python, Helm, Ansible, DevSecOps, MLOps
 - Total Experience: {settings.profile.years_of_experience} years
 - Notice Period: {settings.profile.notice_period_days}{' days' if isinstance(settings.profile.notice_period_days, (int, float)) else ''} (Immediate / Quick joiner)
-- Current Location: {settings.profile.current_location}
+- Current Location: {settings.profile.current_location} (City: {settings.profile.city}, State: {settings.profile.state}, Country: {settings.profile.country})
 - Current Salary: {settings.profile.current_salary_lpa} LPA
 - Expected Salary: {settings.profile.expected_salary_lpa} LPA
 - Visa / Sponsorship: Legally authorized to work, requires sponsorship = {settings.profile.require_visa_sponsorship}

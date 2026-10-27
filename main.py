@@ -18,6 +18,7 @@ from modules.naukri.scraper import scrape_naukri_jobs
 from modules.naukri.auto_apply import run_naukri_auto_apply
 from modules.linkedin.scraper import is_linkedin_logged_in, scrape_linkedin_jobs
 from modules.linkedin.easy_apply import run_linkedin_easy_apply
+from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
 
 @click.group()
@@ -128,6 +129,19 @@ def linkedin_apply(limit: int, headless: bool):
             console.print("[bold red]Please log into LinkedIn first using 'python main.py login --platform linkedin'[/bold red]")
             return
         run_linkedin_easy_apply(page, limit=limit)
+        print_stats_table()
+
+@cli.command("external-apply")
+@click.option("--url", required=True, help="Direct URL to external job application page or ATS")
+@click.option("--company", default="Company", help="Company name")
+@click.option("--title", default="DevOps Engineer", help="Job title")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def external_apply(url: str, company: str, title: str, headless: bool):
+    """Auto-apply to any external job link or company ATS (Greenhouse, Lever, Workday, etc.)."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        res = UniversalATSApplier.apply(page=page, job_url=url, job_title=title, company=company)
+        console.print(f"[bold green]Application Result: {res}[/bold green]")
         print_stats_table()
 
 @cli.command("scrape")

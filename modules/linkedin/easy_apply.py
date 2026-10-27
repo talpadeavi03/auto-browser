@@ -8,6 +8,7 @@ from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
 from core.ai_assistant import ai_assistant
+from modules.external.universal_apply import UniversalATSApplier
 
 def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
     """
@@ -57,17 +58,34 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                     break
 
         if not apply_btn:
-            log.info(f"No Easy Apply button available for {job_title} (requires external application).")
+            # Check for external Apply CTA on LinkedIn
+            ext_apply = page.locator("button:has-text('Apply'), a:has-text('Apply')").first
+            if ext_apply.is_visible(timeout=1500):
+                log.info(f"External Apply detected for {job_title} ({company}). Launching Universal ATS Applier...")
+                try:
+                    with page.context.expect_page(timeout=6000) as new_page_info:
+                        BrowserManager.safe_click(ext_apply)
+                    ext_page = new_page_info.value
+                    ext_page.wait_for_load_state("domcontentloaded")
+                    res = UniversalATSApplier.apply(ext_page, ext_page.url, job_title, company, job_id)
+                    ext_page.close()
+                    return res
+                except Exception as ext_err:
+                    log.warning(f"Could not open external page ({ext_err}). Trying in current tab...")
+                    ext_url = ext_apply.get_attribute("href") or page.url
+                    return UniversalATSApplier.apply(page, ext_url, job_title, company, job_id)
+
+            log.info(f"No Apply button available for {job_title}.")
             db.record_applied_job(
                 platform="linkedin",
                 job_id=job_id,
                 job_title=job_title,
                 company=company,
                 job_url=job_url,
-                status="NO_EASY_APPLY",
-                notes="Requires external application"
+                status="NO_APPLY_BUTTON",
+                notes="Could not locate apply button"
             )
-            return "NO_EASY_APPLY"
+            return "NO_APPLY_BUTTON"
 
         BrowserManager.safe_click(apply_btn)
         BrowserManager.human_delay(2.0, 3.5)
