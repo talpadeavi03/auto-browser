@@ -72,11 +72,24 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
         BrowserManager.safe_click(apply_btn)
         BrowserManager.human_delay(2.0, 3.5)
 
-        # Modal container
-        modal = page.locator("div.jobs-easy-apply-modal, div[role='dialog']:has-text('Easy Apply')").first
-        if not modal.is_visible(timeout=4000):
-            log.warning("Easy Apply modal did not appear.")
+        # Modal / Form container detection (supports both classic dialog and modern drawer)
+        wizard_active = False
+        for sel in [
+            "button:has-text('Submit application')",
+            "button:has-text('Review')",
+            "button:has-text('Next')",
+            "div.jobs-easy-apply-modal",
+            "div[role='dialog']",
+        ]:
+            if page.locator(sel).first.is_visible(timeout=2500):
+                wizard_active = True
+                break
+
+        if not wizard_active:
+            log.warning("Easy Apply form/modal did not appear.")
             return "FAILED"
+
+        modal = page.locator("div.jobs-easy-apply-modal, div[role='dialog'], form:has(button:has-text('Next')), body").first
 
         # Wizard Loop: Process up to 8 steps
         step_count = 0
@@ -90,7 +103,7 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
             fill_current_step_fields(page, modal)
 
             # Step B: Check for 'Submit application' button
-            submit_btn = modal.locator("button:has-text('Submit application'), button[aria-label*='Submit application']").first
+            submit_btn = page.locator("button:has-text('Submit application'), button[aria-label*='Submit application']").first
             if submit_btn.is_visible(timeout=1500):
                 log.info("Reached final review step. Submitting application...")
                 BrowserManager.safe_click(submit_btn)
@@ -114,19 +127,19 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                 return "APPLIED"
 
             # Step C: Check for 'Review' button
-            review_btn = modal.locator("button:has-text('Review'), button[aria-label*='Review']").first
+            review_btn = page.locator("button:has-text('Review'), button[aria-label*='Review']").first
             if review_btn.is_visible(timeout=1500):
                 BrowserManager.safe_click(review_btn)
                 continue
 
             # Step D: Check for 'Next' button
-            next_btn = modal.locator("button:has-text('Next'), button[aria-label*='Continue to next step']").first
+            next_btn = page.locator("button:has-text('Next'), button[aria-label*='Continue to next step']").first
             if next_btn.is_visible(timeout=1500):
                 BrowserManager.safe_click(next_btn)
                 continue
 
             # If none of Next/Review/Submit are visible, check for errors or unknown blocking step
-            error_msg = modal.locator(".artdeco-inline-feedback--error").first
+            error_msg = page.locator(".artdeco-inline-feedback--error, [aria-invalid='true']").first
             if error_msg.is_visible(timeout=1000):
                 log.warning(f"Unresolved mandatory field or screening quiz on step {step_count}: {error_msg.inner_text().strip()}")
                 dismiss_modal(page, modal)
@@ -302,11 +315,11 @@ def fill_current_step_fields(page: Page, modal: Locator):
     except Exception as e:
         log.debug(f"Encountered minor error filling step: {e}")
 
-def dismiss_modal(page: Page, modal: Locator):
+def dismiss_modal(page: Page, modal: Optional[Locator] = None):
     """Safely closes modal and confirms discard so session remains clean."""
     try:
-        close_btn = modal.locator("button[aria-label='Dismiss'], button.artdeco-modal__dismiss").first
-        if close_btn.is_visible():
+        close_btn = page.locator("button[aria-label*='Dismiss' i], button.artdeco-modal__dismiss, button[aria-label*='Close' i]").first
+        if close_btn.is_visible(timeout=1500):
             BrowserManager.safe_click(close_btn)
             BrowserManager.human_delay(1.0, 1.8)
 

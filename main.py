@@ -111,7 +111,7 @@ def naukri_apply(limit: int, headless: bool):
     """Auto-apply to matching jobs on Naukri."""
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
-        if not is_naukri_logged_in(page):
+        if not is_naukri_logged_in(page, navigate=True):
             console.print("[bold red]Please log into Naukri first using 'python main.py login --platform naukri'[/bold red]")
             return
         run_naukri_auto_apply(page, limit=limit)
@@ -124,7 +124,7 @@ def linkedin_apply(limit: int, headless: bool):
     """Auto-apply to matching LinkedIn jobs using Easy Apply."""
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
-        if not is_linkedin_logged_in(page):
+        if not is_linkedin_logged_in(page, navigate=True):
             console.print("[bold red]Please log into LinkedIn first using 'python main.py login --platform linkedin'[/bold red]")
             return
         run_linkedin_easy_apply(page, limit=limit)
@@ -182,7 +182,7 @@ def run_all(limit: int, headless: bool):
         # Step 2: LinkedIn Easy Apply
         console.print("\n[bold cyan]Step 2: Running LinkedIn Easy Apply...[/bold cyan]")
         try:
-            if is_linkedin_logged_in(page):
+            if is_linkedin_logged_in(page, navigate=True):
                 run_linkedin_easy_apply(page, limit=limit)
             else:
                 log.warning("LinkedIn session inactive. Skipping LinkedIn apply.")
@@ -192,7 +192,7 @@ def run_all(limit: int, headless: bool):
         # Step 3: Naukri Auto-Apply
         console.print("\n[bold cyan]Step 3: Running Naukri Auto-Apply...[/bold cyan]")
         try:
-            if is_naukri_logged_in(page):
+            if is_naukri_logged_in(page, navigate=True):
                 run_naukri_auto_apply(page, limit=limit)
             else:
                 log.warning("Naukri session inactive. Skipping Naukri apply.")

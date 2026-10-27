@@ -100,6 +100,7 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
 
         # Target job card containers (classic and new search-results)
         job_card_selectors = [
+            "div[data-job-id]",
             "li.jobs-search-results__list-item",
             "div.job-card-container",
             "div.job-card-job-posting-card-wrapper",
@@ -167,7 +168,7 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                     job_id = urn.split(":")[-1] if urn else ""
 
                 # Title
-                title_elem = card.locator("a.job-card-list__title--link, a.job-card-container__link, .artdeco-entity-lockup__title a").first
+                title_elem = card.locator("a.job-card-list__title--link, a.job-card-container__link, .artdeco-entity-lockup__title a, a[href*='/jobs/view/']").first
                 if not title_elem.is_visible():
                     continue
 

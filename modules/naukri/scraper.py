@@ -17,7 +17,10 @@ def construct_naukri_search_url(keyword: str, location: str, experience_years: O
         "l": location,
     }
     if experience_years is not None:
-        params["experience"] = str(experience_years)
+        try:
+            params["experience"] = str(int(float(experience_years)))
+        except (ValueError, TypeError):
+            pass
 
     return f"{base_url}?{urllib.parse.urlencode(params)}"
 
