@@ -262,5 +262,19 @@ def export_auth():
             "   • Value: Your Google Gemini API key\n"
         )
 
+@cli.command("export-dataset")
+@click.option("--output", default="data/training_dataset.jsonl", help="Target path for training JSONL file")
+def export_dataset(output: str):
+    """Exports application form screening Q&A into HuggingFace/Colab format for ML fine-tuning."""
+    out_file = db.export_training_dataset(Path(output))
+    console.print(f"\n[bold green]✓ Training dataset ready for Google Colab:[/bold green] [cyan]{out_file}[/cyan]")
+    console.print(
+        "[bold white]Next Steps to train your model for free:[/bold white]\n"
+        "1. Open the notebook in [cyan]notebooks/train_colab.ipynb[/cyan] in Google Colab.\n"
+        "2. Upload [green]data/training_dataset.jsonl[/green] or connect your GitHub repo.\n"
+        "3. Click 'Run All' with free T4 GPU to fine-tune Qwen-2.5-1.5B with LoRA in ~5-10 minutes.\n"
+        "4. Your fine-tuned model will auto-push to Hugging Face Hub (free) or save GGUF to Google Drive!"
+    )
+
 if __name__ == "__main__":
     cli()

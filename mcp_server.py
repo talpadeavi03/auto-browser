@@ -369,6 +369,15 @@ def ai_answer_screening_question(
             "message": "GEMINI_API_KEY is not set. Add it in your .env file to enable Gemini answering."
         }
     ans = ai_assistant.answer_question(question, field_type=field_type, options=options)
+    if ans:
+        db.record_interaction(
+            platform="mcp",
+            question=question,
+            answer=ans,
+            field_type=field_type,
+            options=options,
+            source="mcp_gemini_ai"
+        )
     return {
         "status": "SUCCESS",
         "question": question,
@@ -415,6 +424,22 @@ def apply_external_company_job(
             "company": company,
             "job_title": job_title
         }
+
+@mcp.tool()
+def export_ml_training_dataset() -> Dict[str, Any]:
+    """
+    Exports all collected screening interactions and application answers
+    into HuggingFace standard SFT JSONL format for fine-tuning on Google Colab.
+    """
+    path = db.export_training_dataset()
+    with open(path, "r", encoding="utf-8") as f:
+        count = sum(1 for _ in f)
+    return {
+        "status": "DATASET_EXPORTED",
+        "dataset_path": str(path),
+        "total_samples": count,
+        "format": "HuggingFace_SFT_Alpaca"
+    }
 
 if __name__ == "__main__":
     # Runs standard I/O transport for MCP clients (Claude Desktop, Cursor, Antigravity, etc.)

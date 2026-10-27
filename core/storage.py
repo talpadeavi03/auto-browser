@@ -59,6 +59,22 @@ class Storage:
                     refreshed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS training_interactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL,
+                    job_title TEXT,
+                    company TEXT,
+                    field_type TEXT,
+                    question_or_label TEXT NOT NULL,
+                    options_json TEXT,
+                    chosen_answer TEXT NOT NULL,
+                    source TEXT,
+                    context_snippet TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
             conn.commit()
 
     def is_already_applied(self, platform: str, job_url: str, job_id: Optional[str] = None) -> bool:
@@ -195,5 +211,88 @@ class Storage:
             "csv": str(csv_applied_path),
             "excel": str(excel_path)
         }
+
+    def record_interaction(
+        self,
+        platform: str,
+        question: str,
+        answer: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        job_title: str = "",
+        company: str = "",
+        source: str = "ai_or_heuristic",
+        context: str = ""
+    ) -> bool:
+        """Records an application form screening Q&A or field choice for ML dataset fine-tuning."""
+        if not question or not answer:
+            return False
+        import json
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO training_interactions
+                    (platform, job_title, company, field_type, question_or_label, options_json, chosen_answer, source, context_snippet)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    platform,
+                    job_title,
+                    company,
+                    field_type,
+                    question.strip(),
+                    json.dumps(options) if options else "",
+                    str(answer).strip(),
+                    source,
+                    context[:500] if context else ""
+                ))
+                conn.commit()
+                return True
+            except Exception as e:
+                log.debug(f"Failed to record interaction: {e}")
+                return False
+
+    def export_training_dataset(self, output_path: Optional[Path] = None) -> Path:
+        """
+        Exports all recorded interactions to a Hugging Face / Alpaca format JSONL file
+        ready for direct fine-tuning on Google Colab or Unsloth.
+        """
+        import json
+        out_file = output_path or (self.db_path.parent / "training_dataset.jsonl")
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+
+        system_prompt = (
+            "You are an expert AI autonomous job application agent for candidate Avinash Talpade, "
+            "a DevOps and Cloud Engineer with 3.6 years experience. Answer recruiter screening questions "
+            "accurately, professionally, and truthfully according to the candidate profile."
+        )
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM training_interactions ORDER BY id ASC")
+            rows = cursor.fetchall()
+
+        count = 0
+        with open(out_file, "w", encoding="utf-8") as f:
+            for row in rows:
+                opts = json.loads(row["options_json"]) if row["options_json"] else []
+                options_str = f"\nAvailable Options: {', '.join(opts)}" if opts else ""
+                user_instruction = (
+                    f"Recruiter Question: '{row['question_or_label']}'\n"
+                    f"Field Type: {row['field_type']}{options_str}"
+                )
+                if row["context_snippet"]:
+                    user_instruction += f"\nContext: {row['context_snippet']}"
+
+                entry = {
+                    "instruction": system_prompt,
+                    "input": user_instruction,
+                    "output": row["chosen_answer"]
+                }
+                f.write(json.dumps(entry) + "\n")
+                count += 1
+
+        log.info(f"[bold green]✓ Exported {count} training samples to {out_file} for Google Colab fine-tuning![/bold green]")
+        return out_file
 
 db = Storage()

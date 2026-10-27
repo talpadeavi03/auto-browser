@@ -87,9 +87,6 @@ class BrowserManager:
                     ])
                 except Exception:
                     pass
-                for p in self.context.pages:
-                    self.prepare_page(p)
-                self.context.on("page", lambda new_page: self.prepare_page(new_page))
                 return self.context
             except Exception as cdp_err:
                 log.warning(f"Could not connect via CDP ({cdp_err}). Launching standalone instance...")

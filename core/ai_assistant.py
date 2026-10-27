@@ -105,4 +105,31 @@ Provide ONLY the final answer to fill into the input box:
             log.warning(f"Gemini API call failed: {e}")
             return ""
 
+    def solve_captcha_image(self, b64_png: str) -> str:
+        """
+        Uses Gemini Vision to read text from an image captcha.
+        """
+        if not self.is_active or not b64_png:
+            return ""
+        try:
+            import base64
+            if "," in b64_png:
+                b64_png = b64_png.split(",")[1]
+            img_bytes = base64.b64decode(b64_png)
+            part = types.Part.from_bytes(data=img_bytes, mime_type="image/png")
+            prompt = "Look at this image. What is the exact text or digits inside this captcha? Respond ONLY with the alphanumeric characters without spaces or punctuation."
+            resp = self.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[part, prompt],
+                config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=20)
+            )
+            ans = (resp.text or "").strip()
+            # Clean characters
+            result = "".join(c for c in ans if c.isalnum())
+            log.info(f"[cyan]🤖 Gemini AI solved image captcha:[/cyan] [bold green]'{result}'[/bold green]")
+            return result
+        except Exception as e:
+            log.warning(f"Gemini captcha solver error: {e}")
+            return ""
+
 ai_assistant = AIAssistant()
