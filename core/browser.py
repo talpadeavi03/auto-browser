@@ -1,10 +1,12 @@
 import random
+import shutil
+import socket
 import time
 from pathlib import Path
 from typing import Optional, Generator
 from contextlib import contextmanager
 
-from playwright.sync_api import sync_playwright, BrowserContext, Page, Locator
+from playwright.sync_api import sync_playwright, BrowserContext, Browser, Page, Locator
 from playwright_stealth import Stealth
 
 from config.config import settings
@@ -15,10 +17,37 @@ DEFAULT_USER_AGENT = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
+def is_cdp_port_open(host: str = "127.0.0.1", port: int = 9222) -> bool:
+    """Checks whether Brave is already running with a remote debugging port."""
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+def find_brave_executable() -> Optional[str]:
+    """Auto-detects the path to the Brave browser executable on Linux/POSIX."""
+    candidates = [
+        settings.browser.brave_path,
+        str(Path.home() / ".local/share/flatpak/exports/bin/com.brave.Browser"),
+        "/var/lib/flatpak/exports/bin/com.brave.Browser",
+        "/usr/bin/brave-browser",
+        "/usr/bin/brave",
+        shutil.which("brave-browser"),
+        shutil.which("brave"),
+        shutil.which("com.brave.Browser"),
+    ]
+    for c in candidates:
+        if c and Path(c).exists():
+            return str(c)
+    return None
+
 class BrowserManager:
     """
     Manages Playwright browser lifecycle with persistent profile,
     anti-bot stealth injection, and realistic human behavior simulation.
+    Supports native Brave Browser as well as standard Chromium.
+    Supports direct connection to currently open Brave via CDP (port 9222).
     """
     def __init__(self, headless: Optional[bool] = None, slow_mo: Optional[int] = None):
         self.headless = headless if headless is not None else settings.browser.headless
@@ -27,14 +56,28 @@ class BrowserManager:
         self.user_data_dir.mkdir(parents=True, exist_ok=True)
         self.stealth = Stealth()
         self.playwright = None
+        self.cdp_browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
 
     def start(self) -> BrowserContext:
-        """Starts Playwright with persistent context and stealth configuration."""
+        """Starts Playwright with persistent context or connects to running Brave via CDP."""
         if self.context:
             return self.context
 
         self.playwright = sync_playwright().start()
+
+        # Check if user already has Brave open with remote debugging
+        if is_cdp_port_open():
+            try:
+                log.info("[bold green]Found running Brave with Remote Debugging (port 9222)![/bold green] Connecting directly to your live session...")
+                self.cdp_browser = self.playwright.chromium.connect_over_cdp("http://127.0.0.1:9222")
+                if self.cdp_browser.contexts:
+                    self.context = self.cdp_browser.contexts[0]
+                else:
+                    self.context = self.cdp_browser.new_context()
+                return self.context
+            except Exception as cdp_err:
+                log.warning(f"Could not connect via CDP ({cdp_err}). Launching standalone instance...")
 
         args = [
             "--disable-blink-features=AutomationControlled",
@@ -45,9 +88,19 @@ class BrowserManager:
             "--window-size=1400,900",
         ]
 
+        executable_path = None
+        if settings.browser.engine.lower() == "brave":
+            brave_bin = find_brave_executable()
+            if brave_bin:
+                executable_path = brave_bin
+                log.info(f"[bold magenta]Using Brave Browser:[/bold magenta] {brave_bin}")
+            else:
+                log.warning("Brave requested but executable not found. Falling back to bundled Chromium.")
+
         log.info(f"Launching persistent browser context (headless={self.headless})...")
         self.context = self.playwright.chromium.launch_persistent_context(
             user_data_dir=str(self.user_data_dir),
+            executable_path=executable_path,
             headless=self.headless,
             slow_mo=self.slow_mo,
             user_agent=DEFAULT_USER_AGENT,
@@ -57,7 +110,6 @@ class BrowserManager:
             timeout=settings.browser.timeout_ms,
         )
 
-        # Inject stealth hooks on all existing and future pages
         for page in self.context.pages:
             self.prepare_page(page)
 
@@ -68,7 +120,6 @@ class BrowserManager:
         """Applies stealth and anti-bot evasions to a given page."""
         try:
             self.stealth.apply_stealth_sync(page)
-            # Extra evasion scripts
             page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
@@ -78,7 +129,7 @@ class BrowserManager:
                 };
             """)
         except Exception as e:
-            log.warning(f"Could not apply extra stealth scripts: {e}")
+            log.debug(f"Could not apply extra stealth scripts: {e}")
 
     def new_page(self) -> Page:
         """Returns the main active page or creates a new stealth page."""
@@ -96,9 +147,15 @@ class BrowserManager:
     def close(self):
         """Gracefully closes context and Playwright instance."""
         try:
-            if self.context:
+            if self.cdp_browser:
+                # Disconnect from user's live browser without killing their tabs
+                self.cdp_browser.close()
+                self.cdp_browser = None
+                self.context = None
+            elif self.context:
                 self.context.close()
                 self.context = None
+
             if self.playwright:
                 self.playwright.stop()
                 self.playwright = None

@@ -13,6 +13,8 @@ ENV_PATH = ROOT_DIR / ".env"
 load_dotenv(ENV_PATH)
 
 class BrowserConfig(BaseModel):
+    engine: str = "brave" # "brave" or "chromium"
+    brave_path: Optional[str] = None
     headless: bool = False
     slow_mo_ms: int = 60
     user_data_dir: str = "data/browser_profile"

@@ -1,5 +1,7 @@
 # RPA Auto-Browser Configuration
 browser:
+  engine: "brave"           # "brave" or "chromium" (Brave has built-in ad/tracker blocking and anti-fingerprinting)
+  brave_path: ""            # Leave empty to auto-detect installed Brave Browser
   headless: false           # Set to true for silent background running; false to watch the browser
   slow_mo_ms: 60            # Milliseconds delay between actions for human-like execution
   user_data_dir: "data/browser_profile" # Persistent browser session (stores cookies/logins)
@@ -7,30 +9,34 @@ browser:
 
 # Personal Application Info for Form Filling
 profile:
-  first_name: "Applicant"
-  last_name: "User"
-  email: "user@example.com"
+  first_name: "Avinash"
+  last_name: "Talpade"
+  email: "talpadeavi0303@gmail.com"
   phone: "9876543210"
-  current_location: "Bengaluru, Karnataka, India"
+  current_location: "Pune, Maharashtra, India"
   years_of_experience: 3
   current_salary_lpa: "12"
   expected_salary_lpa: "18"
   notice_period_days: 15
   require_visa_sponsorship: false
   authorized_to_work: true
-  resume_path: "data/resumes/resume.pdf"
+  resume_path: "data/resumes/AT_26_AI.pdf"
 
 # LinkedIn Automation Settings
 linkedin:
   enabled: true
   search_keywords:
-    - "Python Developer"
-    - "Full Stack Developer"
-    - "Software Engineer"
+    - "DevOps Engineer"
+    - "MLOps Engineer"
+    - "DevSecOps Engineer"
+    - "Cloud Engineer"
+    - "Infrastructure Engineer"
+    - "System Engineer"
   locations:
     - "India"
-    - "Remote"
+    - "Pune"
     - "Bengaluru"
+    - "Remote"
   experience_levels:
     - "Entry level"
     - "Associate"
@@ -48,9 +54,14 @@ naukri:
     interval_hours: 4       # Refresh frequency to rank #1 in recruiter search
     tweak_headline_dot: true # Adds/removes a trailing period to trigger profile update timestamp
   search_keywords:
-    - "Python Developer"
-    - "Software Engineer"
+    - "DevOps Engineer"
+    - "MLOps Engineer"
+    - "DevSecOps Engineer"
+    - "Cloud Engineer"
+    - "Infrastructure Engineer"
+    - "System Engineer"
   locations:
+    - "Pune"
     - "Bengaluru"
     - "Remote"
   experience_years: 3

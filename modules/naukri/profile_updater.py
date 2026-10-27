@@ -8,16 +8,20 @@ from core.storage import db
 NAUKRI_PROFILE_URL = "https://www.naukri.com/mnjuser/profile"
 NAUKRI_LOGIN_URL = "https://www.naukri.com/nlogin/login"
 
-def is_naukri_logged_in(page: Page) -> bool:
+def is_naukri_logged_in(page: Page, navigate: bool = False) -> bool:
     """Verifies whether the current session is actively authenticated on Naukri."""
     try:
-        page.goto(NAUKRI_PROFILE_URL, timeout=25000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(2, 3)
-        current_url = page.url
+        if navigate:
+            page.goto(NAUKRI_PROFILE_URL, timeout=25000, wait_until="domcontentloaded")
+            BrowserManager.human_delay(1.5, 2.5)
+
+        current_url = page.url.lower()
         if "nlogin" in current_url or "login" in current_url:
             return False
-        
-        # Check for profile container or user navigation bar
+
+        if any(x in current_url for x in ["/mnjuser", "/my-naukri", "/homepage"]):
+            return True
+
         profile_indicators = [
             ".profile-name",
             ".view-profile-wrapper",
@@ -26,7 +30,7 @@ def is_naukri_logged_in(page: Page) -> bool:
             ".widgetHead",
         ]
         for sel in profile_indicators:
-            if page.locator(sel).first.is_visible(timeout=3000):
+            if page.locator(sel).first.is_visible(timeout=1000):
                 return True
         return "mnjuser/profile" in current_url
     except Exception as e:

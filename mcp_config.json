@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "auto-browser-job-rpa": {
+      "command": "/home/sudo69/Projects/auto-browser/venv/bin/python",
+      "args": [
+        "/home/sudo69/Projects/auto-browser/mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/home/sudo69/Projects/auto-browser"
+      }
+    }
+  }
+}

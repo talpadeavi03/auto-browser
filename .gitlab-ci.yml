@@ -1,0 +1,60 @@
+# GitLab CI/CD Pipeline for Auto-Browser RPA Suite
+stages:
+  - test
+  - automate
+  - export
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+default:
+  image: python:3.12-slim
+  before_script:
+    - python -V
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - playwright install-deps chromium 2>/dev/null || true
+    - playwright install chromium
+
+# Pipeline smoke test
+lint_and_check:
+  stage: test
+  script:
+    - source venv/bin/activate
+    - python -c "import mcp_server; print('MCP server verified!')"
+    - python main.py --help
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+# Scheduled task: Naukri Profile Booster (runs every 4 hours via GitLab Scheduled Pipelines)
+naukri_profile_boost:
+  stage: automate
+  script:
+    - source venv/bin/activate
+    - python main.py naukri-refresh --headless
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $AUTOMATE_JOB == "naukri_boost"
+  allow_failure: true
+
+# Scheduled task: Daily job scrape & report generation
+daily_job_tracker:
+  stage: automate
+  script:
+    - source venv/bin/activate
+    - python main.py scrape --platform all --headless
+    - python main.py export
+  artifacts:
+    name: "job-reports-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - data/exports/*.xlsx
+      - data/exports/*.csv
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $AUTOMATE_JOB == "tracker"
+  allow_failure: true

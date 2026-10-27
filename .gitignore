@@ -1,16 +1,30 @@
-# Python
+# Virtual Environment
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 
-# Browser persistent profiles & credentials
+# Sensitive User Data & Resumes
+data/resumes/*
+!data/resumes/.gitkeep
+*.pdf
+
+# Browser Persistent Profiles & Logins
 data/browser_profile/
+.cache/
+
+# Databases & Runtime Logs
 data/jobs.db
 data/rpa.log
-data/exports/*.csv
-data/exports/*.xlsx
-.env
+*.log
 
-# Playwright cache
-.cache/
+# Generated Exports
+data/exports/*
+!data/exports/.gitkeep
+*.xlsx
+*.csv
+
+# Secrets & Environment
+.env
+.env.local

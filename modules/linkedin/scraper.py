@@ -48,14 +48,19 @@ def construct_linkedin_search_url(
 
     return f"https://www.linkedin.com/jobs/search/?{urllib.parse.urlencode(params)}"
 
-def is_linkedin_logged_in(page: Page) -> bool:
+def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
     """Verifies whether user is actively authenticated on LinkedIn."""
     try:
-        page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(2.0, 3.0)
-        current_url = page.url
+        if navigate:
+            page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
+            BrowserManager.human_delay(1.5, 2.5)
+
+        current_url = page.url.lower()
         if "login" in current_url or "checkpoint" in current_url or "authwall" in current_url:
             return False
+
+        if any(x in current_url for x in ["/feed", "/mynetwork", "/jobs", "/in/"]):
+            return True
 
         auth_indicators = [
             ".global-nav__me-photo",
@@ -64,7 +69,7 @@ def is_linkedin_logged_in(page: Page) -> bool:
             "nav.global-nav",
         ]
         for sel in auth_indicators:
-            if page.locator(sel).first.is_visible(timeout=3000):
+            if page.locator(sel).first.is_visible(timeout=1000):
                 return True
         return "linkedin.com/feed" in current_url
     except Exception as e:
@@ -93,11 +98,12 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
             BrowserManager.human_scroll(page, steps=2, distance=500)
             BrowserManager.human_delay(1.0, 2.0)
 
-        # Target job card containers
+        # Target job card containers (classic and new search-results)
         job_card_selectors = [
             "li.jobs-search-results__list-item",
             "div.job-card-container",
             "div.job-card-job-posting-card-wrapper",
+            ".scaffold-layout__list-item",
         ]
 
         cards = []
@@ -108,6 +114,46 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                 break
 
         log.info(f"Found {len(cards)} LinkedIn job cards in view.")
+
+        # Fallback for new LinkedIn search-results UI
+        if not cards:
+            links = page.locator("a[href*='/jobs/view/']").all()
+            log.info(f"Checking direct job links fallback: found {len(links)} links.")
+            seen_ids = set()
+            for l in links:
+                if len(scraped) >= max_jobs:
+                    break
+                try:
+                    title = l.inner_text().strip()
+                    if not title or len(title) > 100:
+                        continue
+                    href = l.get_attribute("href") or ""
+                    clean_url = href.split("?")[0]
+                    parts = [p for p in clean_url.split("/") if p]
+                    j_id = parts[-1] if parts else ""
+                    if not j_id or j_id in seen_ids:
+                        continue
+                    seen_ids.add(j_id)
+
+                    job_data = {
+                        "platform": "linkedin",
+                        "job_id": j_id,
+                        "job_title": title,
+                        "company": "LinkedIn Listing",
+                        "location": location,
+                        "job_url": clean_url,
+                    }
+                    db.record_scraped_job(
+                        platform="linkedin",
+                        job_id=j_id,
+                        job_title=title,
+                        company="LinkedIn Listing",
+                        location=location,
+                        job_url=clean_url
+                    )
+                    scraped.append(job_data)
+                except Exception as fb_err:
+                    log.debug(f"Fallback link parse error: {fb_err}")
 
         for card in cards:
             if len(scraped) >= max_jobs:

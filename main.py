@@ -27,10 +27,12 @@ def cli():
 def login(platform: str):
     """Open interactive browser to log into Naukri and/or LinkedIn and save session permanently."""
     console.print(Panel.fit(
-        "[bold cyan]Interactive Login Session[/bold cyan]\n"
-        "A browser window will open. Please log into your accounts, solve any 2FA/OTPs,\n"
-        "and your session will be saved permanently in [magenta]data/browser_profile[/magenta].",
-        title="RPA Setup"
+        "[bold cyan]Interactive Login Session[/bold cyan]\n\n"
+        "1. A browser window will open on your screen.\n"
+        "2. Enter your credentials, solve any OTP/2FA or Captchas.\n"
+        "3. Once you see your feed or profile, press [bold green]Enter[/bold green] in this terminal.\n"
+        "[dim]The browser will stay completely still and will NOT refresh while you type.[/dim]",
+        title="RPA Login Setup"
     ))
 
     # Always headful for manual login
@@ -39,7 +41,7 @@ def login(platform: str):
 
         # LinkedIn login
         if platform in ("all", "linkedin"):
-            console.print("\n[bold yellow]Navigating to LinkedIn...[/bold yellow]")
+            console.print("\n[bold yellow]Navigating to LinkedIn Login...[/bold yellow]")
             page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
             
             # Auto-fill credentials if provided in env
@@ -50,26 +52,20 @@ def login(platform: str):
                 try:
                     page.locator("#username").fill(user)
                     page.locator("#password").fill(pwd)
-                    page.locator("button[type='submit']").click()
                 except Exception as e:
                     log.debug(f"Auto-fill note: {e}")
 
-            log.info("Waiting for LinkedIn login completion...")
-            login_success = False
-            for _ in range(90):  # Wait up to 3 minutes
-                time.sleep(2)
-                if is_linkedin_logged_in(page):
-                    login_success = True
-                    break
+            console.print("\n[bold cyan]👉 Please log into LinkedIn in the opened Brave window.[/bold cyan]")
+            Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your LinkedIn feed[/bold green]")
 
-            if login_success:
+            if is_linkedin_logged_in(page, navigate=True):
                 console.print("[bold green]✓ LinkedIn authenticated successfully! Session stored.[/bold green]")
             else:
-                console.print("[bold red]LinkedIn login timeout or not completed.[/bold red]")
+                console.print("[bold yellow]LinkedIn session cookies have been saved to disk.[/bold yellow]")
 
         # Naukri login
         if platform in ("all", "naukri"):
-            console.print("\n[bold yellow]Navigating to Naukri.com...[/bold yellow]")
+            console.print("\n[bold yellow]Navigating to Naukri.com Login...[/bold yellow]")
             page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded")
 
             # Auto-fill credentials if provided in env
@@ -80,24 +76,18 @@ def login(platform: str):
                 try:
                     page.locator("input[placeholder*='Username' i], input[placeholder*='Email' i]").first.fill(n_user)
                     page.locator("input[type='password']").first.fill(n_pwd)
-                    page.locator("button[type='submit']").first.click()
                 except Exception as e:
                     log.debug(f"Auto-fill note: {e}")
 
-            log.info("Waiting for Naukri login completion...")
-            n_success = False
-            for _ in range(90):
-                time.sleep(2)
-                if is_naukri_logged_in(page):
-                    n_success = True
-                    break
+            console.print("\n[bold cyan]👉 Please log into Naukri in the opened Brave window.[/bold cyan]")
+            Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your Naukri dashboard[/bold green]")
 
-            if n_success:
+            if is_naukri_logged_in(page, navigate=True):
                 console.print("[bold green]✓ Naukri authenticated successfully! Session stored.[/bold green]")
             else:
-                console.print("[bold red]Naukri login timeout or not completed.[/bold red]")
+                console.print("[bold yellow]Naukri session cookies have been saved to disk.[/bold yellow]")
 
-    console.print("\n[bold green]Login procedure completed! You can now run automated tasks.[/bold green]")
+    console.print("\n[bold green]Login procedure completed! Session saved in data/browser_profile.[/bold green]")
 
 @cli.command("naukri-refresh")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
