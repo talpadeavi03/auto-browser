@@ -38,7 +38,7 @@ Candidate Background:
 - Profession: Cloud & DevOps Engineer / Platform Engineer
 - Primary Skills: AWS, Azure, GCP, Kubernetes, Docker, Terraform, CI/CD (GitHub Actions, GitLab CI, Jenkins), Linux Administration, Python, Helm, Ansible, DevSecOps, MLOps
 - Total Experience: {settings.profile.years_of_experience} years
-- Notice Period: {settings.profile.notice_period_days} days (Immediate / Quick joiner)
+- Notice Period: {settings.profile.notice_period_days}{' days' if isinstance(settings.profile.notice_period_days, (int, float)) else ''} (Immediate / Quick joiner)
 - Current Location: {settings.profile.current_location}
 - Current Salary: {settings.profile.current_salary_lpa} LPA
 - Expected Salary: {settings.profile.expected_salary_lpa} LPA
