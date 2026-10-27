@@ -127,8 +127,11 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
             BrowserManager.human_scroll(page, steps=2, distance=500)
             BrowserManager.human_delay(1.0, 2.0)
 
-        # Target job card containers (classic and new search-results)
+        # Target job card containers (classic and modern search-results)
         job_card_selectors = [
+            ".jobs-search__results-list li",
+            ".job-search-card",
+            ".base-search-card",
             "div[data-job-id]",
             "li.jobs-search-results__list-item",
             "div.job-card-container",
@@ -145,7 +148,7 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
 
         log.info(f"Found {len(cards)} LinkedIn job cards in view.")
 
-        # Fallback for new LinkedIn search-results UI
+        # Fallback for direct job links if container cards not found
         if not cards:
             links = page.locator("a[href*='/jobs/view/']").all()
             log.info(f"Checking direct job links fallback: found {len(links)} links.")
@@ -193,27 +196,35 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                 # Job ID
                 job_id = card.get_attribute("data-occludable-job-id") or ""
                 if not job_id:
-                    urn = card.get_attribute("data-job-id") or ""
+                    urn = card.get_attribute("data-entity-urn") or card.get_attribute("data-job-id") or ""
                     job_id = urn.split(":")[-1] if urn else ""
 
-                # Title
-                title_elem = card.locator("a.job-card-list__title--link, a.job-card-container__link, .artdeco-entity-lockup__title a, a[href*='/jobs/view/']").first
-                if not title_elem.is_visible():
+                # Title & link
+                title_elem = card.locator("h3, .base-search-card__title, a.job-card-list__title--link, a.job-card-container__link, .artdeco-entity-lockup__title a, a[href*='/jobs/view/']").first
+                if not title_elem.count() > 0:
                     continue
 
                 job_title = title_elem.inner_text().strip()
-                href = title_elem.get_attribute("href") or ""
+                if not job_title:
+                    continue
+
+                link_elem = card.locator("a[href*='/jobs/view/']").first
+                href = (link_elem.get_attribute("href") if link_elem.count() > 0 else "") or (title_elem.get_attribute("href") if title_elem.count() > 0 else "") or ""
                 clean_url = href.split("?")[0] if href else ""
                 if not clean_url and job_id:
                     clean_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+                elif clean_url and not job_id:
+                    parts = [p for p in clean_url.split("-") if p]
+                    if parts and parts[-1].isdigit():
+                        job_id = parts[-1]
 
                 # Company
-                comp_elem = card.locator(".artdeco-entity-lockup__subtitle, .job-card-container__primary-description").first
-                company = comp_elem.inner_text().strip() if comp_elem.is_visible() else "Unknown"
+                comp_elem = card.locator("h4, .base-search-card__subtitle, .artdeco-entity-lockup__subtitle, .job-card-container__primary-description").first
+                company = comp_elem.inner_text().strip() if comp_elem.count() > 0 else "Unknown"
 
                 # Location
-                loc_elem = card.locator(".job-card-container__metadata-item, .artdeco-entity-lockup__caption").first
-                loc = loc_elem.inner_text().strip() if loc_elem.is_visible() else location
+                loc_elem = card.locator(".job-search-card__location, .job-card-container__metadata-item, .artdeco-entity-lockup__caption").first
+                loc = loc_elem.inner_text().strip() if loc_elem.count() > 0 else location
 
                 job_data = {
                     "platform": "linkedin",
