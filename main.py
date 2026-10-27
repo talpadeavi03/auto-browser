@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+import base64
+import json
 import os
 import sys
 import time
+from pathlib import Path
 import click
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -201,6 +204,49 @@ def run_all(limit: int, headless: bool):
     print_stats_table()
     export_reports()
     console.print("\n[bold green]✓ Complete RPA Workflow sequence finished successfully![/bold green]")
+
+@cli.command("export-auth")
+def export_auth():
+    """Export active authenticated cookies for 24/7 cloud execution (GitHub Actions)."""
+    console.print(Panel.fit("[bold cyan]Exporting Authenticated Session for Cloud CI/CD[/bold cyan]"))
+    with get_browser() as browser:
+        context = browser.context
+        cookies = context.cookies()
+        filtered = [c for c in cookies if any(d in c.get("domain", "") for d in ["naukri.com", "linkedin.com"])]
+        
+        if not filtered:
+            console.print("[bold red]No active Naukri or LinkedIn cookies found.[/bold red] Please make sure you are logged in first.")
+            return
+
+        payload = {"cookies": filtered}
+        json_str = json.dumps(payload)
+        b64_str = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+        # Save locally
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        (data_dir / "auth_state.json").write_text(json_str)
+        secret_file = data_dir / "auth_secret_for_github.txt"
+        secret_file.write_text(b64_str)
+
+        naukri_count = sum(1 for c in filtered if "naukri" in c.get("domain", ""))
+        linkedin_count = sum(1 for c in filtered if "linkedin" in c.get("domain", ""))
+
+        console.print(f"[bold green]✓ Successfully exported {len(filtered)} session cookies![/bold green]")
+        console.print(f"  • Naukri cookies: [bold cyan]{naukri_count}[/bold cyan]")
+        console.print(f"  • LinkedIn cookies: [bold cyan]{linkedin_count}[/bold cyan]")
+        console.print(f"\n[bold yellow]Cloud Secret saved to:[/bold yellow] [green]{secret_file}[/green]")
+        console.print(
+            "\n[bold white]To run 24/7 online in GitHub Actions without opening your laptop:[/bold white]\n"
+            "1. Copy the string in [bold green]data/auth_secret_for_github.txt[/bold green]\n"
+            "2. Open: [cyan]https://github.com/talpadeavi03/auto-browser/settings/secrets/actions[/cyan]\n"
+            "3. Click 'New repository secret'\n"
+            "   • Name: [bold green]AUTH_STORAGE_STATE[/bold green]\n"
+            "   • Value: Paste the copied string\n"
+            "4. Add another secret for Gemini:\n"
+            "   • Name: [bold green]GEMINI_API_KEY[/bold green]\n"
+            "   • Value: Your Google Gemini API key\n"
+        )
 
 if __name__ == "__main__":
     cli()

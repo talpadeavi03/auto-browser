@@ -1,3 +1,6 @@
+import base64
+import json
+import os
 import random
 import shutil
 import socket
@@ -109,6 +112,31 @@ class BrowserManager:
             accept_downloads=True,
             timeout=settings.browser.timeout_ms,
         )
+
+        # Inject stored session cookies if available (cloud / standalone execution)
+        cookies_to_load = []
+        auth_env = os.getenv("AUTH_STORAGE_STATE")
+        auth_file = Path("data/auth_state.json")
+        if auth_env:
+            try:
+                raw_json = base64.b64decode(auth_env).decode("utf-8")
+                data = json.loads(raw_json)
+                cookies_to_load = data.get("cookies", [])
+            except Exception as e:
+                log.warning(f"Could not decode AUTH_STORAGE_STATE environment variable: {e}")
+        elif auth_file.exists():
+            try:
+                data = json.loads(auth_file.read_text())
+                cookies_to_load = data.get("cookies", [])
+            except Exception as e:
+                log.warning(f"Could not read data/auth_state.json: {e}")
+
+        if cookies_to_load:
+            try:
+                self.context.add_cookies(cookies_to_load)
+                log.info(f"[bold green]✓ Restored {len(cookies_to_load)} authenticated session cookies![/bold green]")
+            except Exception as e:
+                log.warning(f"Could not restore session cookies: {e}")
 
         for page in self.context.pages:
             self.prepare_page(page)

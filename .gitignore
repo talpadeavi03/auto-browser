@@ -28,3 +28,5 @@ data/exports/*
 # Secrets & Environment
 .env
 .env.local
+data/auth_*.json
+data/auth_*.txt
