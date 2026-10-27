@@ -77,7 +77,19 @@ class BrowserManager:
                 if self.cdp_browser.contexts:
                     self.context = self.cdp_browser.contexts[0]
                 else:
-                    self.context = self.cdp_browser.new_context()
+                    self.context = self.cdp_browser.new_context(
+                        locale="en-US",
+                        extra_http_headers={"Accept-Language": "en-US,en;q=0.9"}
+                    )
+                try:
+                    self.context.add_cookies([
+                        {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"}
+                    ])
+                except Exception:
+                    pass
+                for p in self.context.pages:
+                    self.prepare_page(p)
+                self.context.on("page", lambda new_page: self.prepare_page(new_page))
                 return self.context
             except Exception as cdp_err:
                 log.warning(f"Could not connect via CDP ({cdp_err}). Launching standalone instance...")
@@ -89,6 +101,7 @@ class BrowserManager:
             "--disable-dev-shm-usage",
             "--no-first-run",
             "--window-size=1400,900",
+            "--lang=en-US",
         ]
 
         executable_path = None
@@ -108,6 +121,8 @@ class BrowserManager:
             slow_mo=self.slow_mo,
             user_agent=DEFAULT_USER_AGENT,
             viewport={"width": 1400, "height": 900},
+            locale="en-US",
+            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
             args=args,
             accept_downloads=True,
             timeout=settings.browser.timeout_ms,
@@ -153,12 +168,21 @@ class BrowserManager:
         return self.context
 
     def prepare_page(self, page: Page):
-        """Applies stealth and anti-bot evasions to a given page."""
+        """Applies stealth, anti-bot evasions, and enforces English language on every page."""
         try:
             self.stealth.apply_stealth_sync(page)
+            page.set_extra_http_headers({
+                "Accept-Language": "en-US,en;q=0.9"
+            })
             page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
+                });
+                Object.defineProperty(navigator, 'language', {
+                    get: () => 'en-US'
+                });
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
                 });
                 window.chrome = {
                     runtime: {}
