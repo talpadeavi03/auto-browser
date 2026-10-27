@@ -56,7 +56,7 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
                 return res
             except Exception as ext_err:
                 log.warning(f"Could not open external popup ({ext_err}). Trying in current tab...")
-                ext_url = external_btn.get_attribute("href") or page.url
+                ext_url = page.url
                 return UniversalATSApplier.apply(page, ext_url, job_title, company, job_id)
 
         # Locate Naukri direct apply button
