@@ -115,13 +115,18 @@ class BrowserManager:
 
         # Inject stored session cookies if available (cloud / standalone execution)
         cookies_to_load = []
-        auth_env = os.getenv("AUTH_STORAGE_STATE")
+        auth_env = (os.getenv("AUTH_STORAGE_STATE") or "").strip()
         auth_file = Path("data/auth_state.json")
         if auth_env:
             try:
-                raw_json = base64.b64decode(auth_env).decode("utf-8")
-                data = json.loads(raw_json)
-                cookies_to_load = data.get("cookies", [])
+                if auth_env.startswith("{") and "cookies" in auth_env:
+                    data = json.loads(auth_env)
+                    cookies_to_load = data.get("cookies", [])
+                else:
+                    clean_b64 = "".join(auth_env.split())
+                    raw_json = base64.b64decode(clean_b64, validate=False).decode("utf-8")
+                    data = json.loads(raw_json)
+                    cookies_to_load = data.get("cookies", [])
             except Exception as e:
                 log.warning(f"Could not decode AUTH_STORAGE_STATE environment variable: {e}")
         elif auth_file.exists():
