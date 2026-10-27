@@ -19,6 +19,7 @@ from config.config import settings
 from core.browser import get_browser, BrowserManager
 from core.logger import log
 from core.storage import db
+from core.ai_assistant import ai_assistant
 from modules.naukri.profile_updater import refresh_naukri_profile, is_naukri_logged_in
 from modules.naukri.scraper import scrape_naukri_jobs
 from modules.naukri.auto_apply import apply_to_naukri_job
@@ -335,6 +336,34 @@ def get_application_history(limit: int = 25) -> Dict[str, Any]:
     return {
         "stats": stats,
         "database_path": str(db.db_path)
+    }
+
+@mcp.tool()
+def ai_answer_screening_question(
+    question: str,
+    field_type: str = "text",
+    options: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Uses Gemini AI and the candidate's actual resume/profile to generate the optimal, truthful
+    answer to any recruiter's screening question (e.g. years of Kubernetes, Terraform experience, essay responses).
+    
+    Args:
+        question: The exact question prompt asked on the job form
+        field_type: 'text', 'number', 'radio', or 'dropdown'
+        options: Optional list of available choices for radio or dropdown fields
+    """
+    if not ai_assistant.is_active:
+        return {
+            "status": "NO_API_KEY",
+            "message": "GEMINI_API_KEY is not set. Add it in your .env file to enable Gemini answering."
+        }
+    ans = ai_assistant.answer_question(question, field_type=field_type, options=options)
+    return {
+        "status": "SUCCESS",
+        "question": question,
+        "field_type": field_type,
+        "ai_generated_answer": ans
     }
 
 @mcp.tool()

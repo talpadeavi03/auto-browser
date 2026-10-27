@@ -12,12 +12,12 @@ profile:
   first_name: "Avinash"
   last_name: "Talpade"
   email: "talpadeavi0303@gmail.com"
-  phone: "9876543210"
+  phone: "8999285015"
   current_location: "Pune, Maharashtra, India"
-  years_of_experience: 3
-  current_salary_lpa: "12"
-  expected_salary_lpa: "18"
-  notice_period_days: 15
+  years_of_experience: 3.6
+  current_salary_lpa: "4.5"
+  expected_salary_lpa: "8.5"
+  notice_period_days: "Immediate Joiner"
   require_visa_sponsorship: false
   authorized_to_work: true
   resume_path: "data/resumes/AT_26_AI.pdf"
@@ -64,7 +64,7 @@ naukri:
     - "Pune"
     - "Bengaluru"
     - "Remote"
-  experience_years: 3
+  experience_years: 3.6
   max_applications_per_run: 15
 
 # Export & Reporting

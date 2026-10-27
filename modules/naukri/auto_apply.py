@@ -4,6 +4,7 @@ from config.config import settings
 from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
+from core.ai_assistant import ai_assistant
 
 def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
     """
@@ -157,13 +158,17 @@ def handle_naukri_screening_modal(page: Page) -> bool:
             if parent.is_visible():
                 label = parent.inner_text().lower()
 
-            combined = f"{placeholder} {label}"
+            combined = f"{placeholder} {label}".strip()
             if "experience" in combined:
                 inp.fill(str(settings.profile.years_of_experience))
             elif "notice" in combined:
                 inp.fill(str(settings.profile.notice_period_days))
             elif "ctc" in combined or "salary" in combined:
                 inp.fill(str(settings.profile.expected_salary_lpa))
+            elif ai_assistant.is_active and combined:
+                ai_val = ai_assistant.answer_question(combined, field_type="text")
+                if ai_val:
+                    inp.fill(ai_val)
 
         # Check for radio buttons with 'Yes'
         yes_radios = page.locator("label:has-text('Yes'), input[value*='yes' i]").all()

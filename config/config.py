@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 import yaml
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -26,10 +26,10 @@ class ProfileConfig(BaseModel):
     email: str = "user@example.com"
     phone: str = "9876543210"
     current_location: str = "Bengaluru, India"
-    years_of_experience: int = 3
+    years_of_experience: Union[int, float] = 3
     current_salary_lpa: str = "12"
     expected_salary_lpa: str = "18"
-    notice_period_days: int = 15
+    notice_period_days: Union[int, str] = 15
     require_visa_sponsorship: bool = False
     authorized_to_work: bool = True
     resume_path: str = "data/resumes/resume.pdf"
@@ -54,7 +54,7 @@ class NaukriConfig(BaseModel):
     profile_refresh: NaukriProfileRefresh = Field(default_factory=NaukriProfileRefresh)
     search_keywords: List[str] = ["Python Developer"]
     locations: List[str] = ["Bengaluru"]
-    experience_years: int = 3
+    experience_years: Union[int, float] = 3
     max_applications_per_run: int = 15
 
 class ReportingConfig(BaseModel):

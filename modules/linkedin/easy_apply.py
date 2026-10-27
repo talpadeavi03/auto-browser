@@ -7,6 +7,7 @@ from config.config import settings
 from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
+from core.ai_assistant import ai_assistant
 
 def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
     """
@@ -215,14 +216,32 @@ def fill_current_step_fields(page: Page, modal: Locator):
                 inp.fill(str(settings.profile.notice_period_days))
             elif "salary" in label_text or "ctc" in label_text or "compensation" in label_text:
                 inp.fill(str(settings.profile.expected_salary_lpa))
+            elif ai_assistant.is_active and label_text:
+                # Use Gemini AI for custom/non-standard questions
+                ai_val = ai_assistant.answer_question(label_text, field_type="text")
+                if ai_val:
+                    inp.fill(ai_val)
 
-        # 3. Radio options (Yes / No)
+        # 3. Radio options (Yes / No or custom choices)
         radio_groups = modal.locator("fieldset").all()
         for group in radio_groups:
             if not group.is_visible():
                 continue
             grp_text = group.inner_text().lower()
 
+            # If Gemini is active, let it choose the optimal option among labels
+            options = [lbl.inner_text().strip() for lbl in group.locator("label").all() if lbl.is_visible()]
+            if ai_assistant.is_active and options:
+                best_choice = ai_assistant.answer_question(group.inner_text().split("\n")[0], field_type="radio", options=options)
+                matched_lbl = group.locator(f"label:has-text('{best_choice}')").first
+                if matched_lbl.is_visible():
+                    try:
+                        matched_lbl.click()
+                        continue
+                    except Exception:
+                        pass
+
+            # Fallback heuristic matching
             # Sponsorship questions -> usually No
             if "sponsorship" in grp_text or "visa" in grp_text:
                 target_choice = "yes" if settings.profile.require_visa_sponsorship else "no"
@@ -258,11 +277,23 @@ def fill_current_step_fields(page: Page, modal: Locator):
         for sel in selects:
             if not sel.is_visible():
                 continue
-            options = sel.locator("option").all()
-            if len(options) > 1:
-                # Select the second option if first is placeholder
+            options = [o.inner_text().strip() for o in sel.locator("option").all() if o.inner_text().strip()]
+            
+            # Let Gemini pick the best dropdown option
+            if ai_assistant.is_active and options:
+                sel_lbl = sel.get_attribute("aria-label") or ""
+                chosen_opt = ai_assistant.answer_question(sel_lbl or "Select the best option", field_type="dropdown", options=options)
                 try:
-                    val = options[1].get_attribute("value")
+                    sel.select_option(label=chosen_opt)
+                    continue
+                except Exception:
+                    pass
+
+            # Fallback heuristic
+            opt_elements = sel.locator("option").all()
+            if len(opt_elements) > 1:
+                try:
+                    val = opt_elements[1].get_attribute("value")
                     if val:
                         sel.select_option(value=val)
                 except Exception:
