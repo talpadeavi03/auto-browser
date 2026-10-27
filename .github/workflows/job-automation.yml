@@ -96,6 +96,10 @@ jobs:
           PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
+          LINKEDIN_USERNAME: ${{ secrets.LINKEDIN_USERNAME }}
+          LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
+          NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
         run: |
           echo "Trigger event: ${{ github.event_name }}"
           ACTION="${{ inputs.action }}"

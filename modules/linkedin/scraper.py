@@ -5,6 +5,7 @@ from config.config import settings
 from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
+from core.auto_auth import auto_login_linkedin
 
 EXP_MAP = {
     "internship": "1",
@@ -76,6 +77,10 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
         current_url = page.url.lower()
         if any(x in current_url for x in ["login", "checkpoint", "authwall", "uas/login"]):
             log.warning(f"LinkedIn session inactive: page redirected to authwall/login URL: {page.url}")
+            log.info("Checking for autonomous auto-login credentials...")
+            if auto_login_linkedin(page):
+                ensure_linkedin_english(page)
+                return True
             return False
 
         if any(x in current_url for x in ["/feed", "/mynetwork", "/jobs", "/in/", "/mypreferences"]):
@@ -99,6 +104,11 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
             ensure_linkedin_english(page)
             return True
         
+        # Last resort: try auto-login
+        if auto_login_linkedin(page):
+            ensure_linkedin_english(page)
+            return True
+
         log.warning(f"LinkedIn session verification failed: Current URL is '{page.url}' (no auth indicator visible)")
         return False
     except Exception as e:

@@ -20,6 +20,7 @@ from modules.linkedin.scraper import is_linkedin_logged_in, scrape_linkedin_jobs
 from modules.linkedin.easy_apply import run_linkedin_easy_apply
 from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
+from core.auto_auth import auto_login_linkedin, auto_login_naukri
 
 @click.group()
 def cli():
@@ -92,6 +93,38 @@ def login(platform: str):
                 console.print("[bold yellow]Naukri session cookies have been saved to disk.[/bold yellow]")
 
     console.print("\n[bold green]Login procedure completed! Session saved in data/browser_profile.[/bold green]")
+
+@cli.command("auto-login")
+@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform for auto-login")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def auto_login_cmd(platform: str, headless: bool):
+    """Autonomously log into LinkedIn and/or Naukri using credentials in .env and persist session."""
+    console.print(Panel.fit("[bold cyan]Autonomous Auto-Login Service[/bold cyan]"))
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        
+        if platform in ("all", "linkedin"):
+            console.print("[yellow]Verifying LinkedIn session...[/yellow]")
+            if is_linkedin_logged_in(page, navigate=True):
+                console.print("[bold green]✓ LinkedIn is already logged in![/bold green]")
+            else:
+                success = auto_login_linkedin(page)
+                if success:
+                    console.print("[bold green]✓ LinkedIn autonomous login succeeded![/bold green]")
+                else:
+                    console.print("[bold red]LinkedIn auto-login failed. Verify LINKEDIN_USERNAME and LINKEDIN_PASSWORD in .env[/bold red]")
+
+        if platform in ("all", "naukri"):
+            console.print("\n[yellow]Verifying Naukri session...[/yellow]")
+            if is_naukri_logged_in(page, navigate=True):
+                console.print("[bold green]✓ Naukri is already logged in![/bold green]")
+            else:
+                success = auto_login_naukri(page)
+                if success:
+                    console.print("[bold green]✓ Naukri autonomous login succeeded![/bold green]")
+                else:
+                    console.print("[bold red]Naukri auto-login failed. Verify NAUKRI_USERNAME and NAUKRI_PASSWORD in .env[/bold red]")
+
 
 @cli.command("naukri-refresh")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")

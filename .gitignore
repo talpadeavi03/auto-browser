@@ -30,6 +30,7 @@ data/exports/*
 # Secrets, Credentials & Local Environments
 .env
 .env.*
+!.env.template
 .env.local
 data/auth_*
 *.token

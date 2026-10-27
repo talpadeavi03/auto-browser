@@ -4,6 +4,7 @@ from config.config import settings
 from core.browser import BrowserManager
 from core.logger import log, console
 from core.storage import db
+from core.auto_auth import auto_login_naukri
 
 NAUKRI_PROFILE_URL = "https://www.naukri.com/mnjuser/profile"
 NAUKRI_LOGIN_URL = "https://www.naukri.com/nlogin/login"
@@ -17,6 +18,9 @@ def is_naukri_logged_in(page: Page, navigate: bool = False) -> bool:
 
         current_url = page.url.lower()
         if "nlogin" in current_url or "login" in current_url:
+            log.warning("Naukri session inactive: login page detected. Attempting autonomous login...")
+            if auto_login_naukri(page):
+                return True
             return False
 
         if any(x in current_url for x in ["/mnjuser", "/my-naukri", "/homepage"]):
@@ -32,7 +36,12 @@ def is_naukri_logged_in(page: Page, navigate: bool = False) -> bool:
         for sel in profile_indicators:
             if page.locator(sel).first.is_visible(timeout=1000):
                 return True
-        return "mnjuser/profile" in current_url
+
+        if "mnjuser/profile" in current_url:
+            return True
+
+        # Last resort: try auto-login
+        return auto_login_naukri(page)
     except Exception as e:
         log.debug(f"Error checking Naukri login state: {e}")
         return False
