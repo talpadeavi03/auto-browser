@@ -71,8 +71,17 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
     """Verifies whether user is actively authenticated on LinkedIn and enforces English."""
     try:
         if navigate:
-            page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
-            BrowserManager.human_delay(1.5, 2.5)
+            try:
+                page.goto("https://www.linkedin.com/feed/", timeout=20000, wait_until="domcontentloaded")
+                BrowserManager.human_delay(1.5, 2.5)
+            except Exception as nav_err:
+                log.warning(f"Initial feed check ({nav_err}). Navigating to login page for verification...")
+                try:
+                    page.goto("https://www.linkedin.com/login", timeout=20000, wait_until="domcontentloaded")
+                    BrowserManager.human_delay(1.5, 2.5)
+                except Exception as l_err:
+                    log.error(f"Failed to navigate to LinkedIn login: {l_err}")
+                    return False
 
         current_url = page.url.lower()
         if any(x in current_url for x in ["login", "checkpoint", "authwall", "uas/login"]):

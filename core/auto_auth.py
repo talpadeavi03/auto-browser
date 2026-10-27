@@ -6,21 +6,21 @@ from pathlib import Path
 from typing import Optional
 from playwright.sync_api import Page
 from config.config import settings
-from core.browser import BrowserManager
+from core.browser import BrowserManager, clean_and_normalize_cookies
 from core.logger import log
 
 DEFAULT_GOOGLE_ACCOUNT = "talpadeavi0303@gmail.com"
 
 def persist_session_cookies(page: Page) -> int:
-    """Extracts and persists active session cookies to data/auth_state.json and data/auth_secret_for_github.txt."""
+    """Extracts, cleans, and persists active session cookies to data/auth_state.json and data/auth_secret_for_github.txt."""
     try:
         context = page.context
         cookies = context.cookies()
-        filtered = [c for c in cookies if any(d in c.get("domain", "") for d in ["naukri.com", "linkedin.com"])]
-        if not filtered:
+        cleaned = clean_and_normalize_cookies(cookies)
+        if not cleaned:
             return 0
 
-        payload = {"cookies": filtered}
+        payload = {"cookies": cleaned}
         json_str = json.dumps(payload, indent=2)
         b64_str = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
 
@@ -29,8 +29,8 @@ def persist_session_cookies(page: Page) -> int:
         (data_dir / "auth_state.json").write_text(json_str, encoding="utf-8")
         (data_dir / "auth_secret_for_github.txt").write_text(b64_str, encoding="utf-8")
 
-        log.info(f"[bold green]✓ Automatically saved {len(filtered)} session cookies to data/auth_state.json![/bold green]")
-        return len(filtered)
+        log.info(f"[bold green]✓ Automatically saved {len(cleaned)} cleaned session cookies to data/auth_state.json & data/auth_secret_for_github.txt![/bold green]")
+        return len(cleaned)
     except Exception as e:
         log.warning(f"Could not persist session cookies: {e}")
         return 0
@@ -60,6 +60,15 @@ def login_with_google(page: Page, target_email: str = DEFAULT_GOOGLE_ACCOUNT) ->
             btn = candidate
             break
 
+    # If top-level button not found, search inside Google GSI iframe (used by LinkedIn, etc.)
+    if not btn:
+        gsi_frames = [f for f in page.frames if "accounts.google.com/gsi/button" in f.url]
+        for f in gsi_frames:
+            cand = f.locator("div[role='button'], div.nsm7Bb-HzV7m-LgbsSe, [aria-labelledby*='button-label']").first
+            if cand.count() > 0 and cand.is_visible():
+                btn = cand
+                break
+
     if not btn:
         return False
 
@@ -79,7 +88,7 @@ def login_with_google(page: Page, target_email: str = DEFAULT_GOOGLE_ACCOUNT) ->
 
         BrowserManager.human_delay(2.0, 3.5)
 
-        # Account Chooser
+        # 1. Account Chooser
         acc_locators = [
             f":text('{target_email}')",
             f"[data-email*='{target_email}']",
@@ -96,17 +105,19 @@ def login_with_google(page: Page, target_email: str = DEFAULT_GOOGLE_ACCOUNT) ->
                 chosen = True
                 break
 
-        # If email input field is asked
-        if not chosen and target_page.locator("input[type='email']").first.is_visible(timeout=2000):
-            target_page.locator("input[type='email']").first.fill(target_email)
-            next_btn = target_page.locator("button:has-text('Next')").first
-            if next_btn.is_visible():
-                next_btn.click()
-            BrowserManager.human_delay(1.5, 2.5)
+        # 2. If email input field is asked
+        if not chosen:
+            email_input = target_page.locator("input#identifierId, input[type='email'], input[name='identifier']").first
+            if email_input.count() > 0 and email_input.is_visible(timeout=3000):
+                log.info(f"Entering Google account email: {target_email}...")
+                BrowserManager.human_type(email_input, target_email)
+                BrowserManager.human_delay(0.5, 1.0)
+                next_btn = target_page.locator("#identifierNext button, #identifierNext, button:has-text('Next')").first
+                if next_btn.is_visible():
+                    next_btn.click()
+                BrowserManager.human_delay(2.0, 3.5)
 
-        BrowserManager.human_delay(2.0, 4.0)
-
-        # Handle 'Continue' / 'Allow' approval button if Google prompts
+        # 3. Handle 'Continue' / 'Allow' approval button if Google prompts
         consent_selectors = [
             "button:has-text('Continue')",
             "button:has-text('Allow')",
@@ -121,7 +132,7 @@ def login_with_google(page: Page, target_email: str = DEFAULT_GOOGLE_ACCOUNT) ->
                 break
 
         # Wait for redirection back to platform
-        page.wait_for_timeout(4000)
+        page.wait_for_timeout(5000)
         persist_session_cookies(page)
         return True
     except Exception as e:

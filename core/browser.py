@@ -45,6 +45,41 @@ def find_brave_executable() -> Optional[str]:
             return str(c)
     return None
 
+def clean_and_normalize_cookies(cookies: list) -> list:
+    """Cleans, normalizes domains, and deduplicates session cookies for Naukri and LinkedIn."""
+    cleaned = []
+    seen = set()
+    for c in cookies:
+        if not isinstance(c, dict):
+            continue
+        c_clean = dict(c)
+        dom = (c_clean.get("domain") or "").lower()
+        if not ("naukri.com" in dom or "linkedin.com" in dom):
+            continue
+
+        name = c_clean.get("name", "")
+        # Drop regional LinkedIn subdomains (.in, .pt, .ae, .uk, .tr, .fr, .sg, .ca, .th, .lk, etc.)
+        if "linkedin.com" in dom:
+            parts = dom.strip(".").split(".")
+            if len(parts) > 2 and parts[-2] == "linkedin" and parts[-1] == "com":
+                sub = parts[0]
+                if sub not in ("www", "linkedin"):
+                    continue
+
+            if name in ("li_at", "liap", "bcookie", "bscookie", "JSESSIONID"):
+                c_clean["domain"] = ".linkedin.com"
+
+        if c_clean.get("sameSite") not in ["Strict", "Lax", "None"]:
+            c_clean["sameSite"] = "None"
+        c_clean["secure"] = True
+
+        key = (name, c_clean.get("domain", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(c_clean)
+    return cleaned
+
 class BrowserManager:
     """
     Manages Playwright browser lifecycle with persistent profile,
@@ -155,15 +190,7 @@ class BrowserManager:
 
         if cookies_to_load:
             try:
-                # Preserve original cookie domains and enforce secure transport
-                cleaned_cookies = []
-                for c in cookies_to_load:
-                    c_clean = dict(c)
-                    if c_clean.get("sameSite") not in ["Strict", "Lax", "None"]:
-                        c_clean["sameSite"] = "None"
-                    c_clean["secure"] = True
-                    cleaned_cookies.append(c_clean)
-
+                cleaned_cookies = clean_and_normalize_cookies(cookies_to_load)
                 self.context.add_cookies(cleaned_cookies)
                 log.info(f"[bold green]✓ Restored {len(cleaned_cookies)} authenticated session cookies (domains normalized)![/bold green]")
             except Exception as e:
