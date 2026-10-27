@@ -19,14 +19,26 @@ data/jobs.db
 data/rpa.log
 *.log
 
-# Generated Exports
+# Generated Exports & Screenshots
 data/exports/*
 !data/exports/.gitkeep
 *.xlsx
 *.csv
+*.png
 
-# Secrets & Environment
+# Secrets, Credentials & Local Environments
 .env
+.env.*
 .env.local
-data/auth_*.json
-data/auth_*.txt
+data/auth_*
+*.token
+*.key
+*.pem
+
+# Local ML Outputs & Adapters
+auto_browser_lora_output/
+final_lora_model/
+*.bin
+*.pt
+*.safetensors
+*.gguf
