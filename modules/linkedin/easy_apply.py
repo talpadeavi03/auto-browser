@@ -39,11 +39,13 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
             )
             return "ALREADY_APPLIED"
 
-        # Locate Easy Apply button
+        # Locate Easy Apply button (supports both English and regional/Bengali interface)
         easy_apply_selectors = [
             "button.jobs-apply-button",
             "button:has-text('Easy Apply')",
+            "button:has-text('সহজে আবেদন জানান')",
             ".jobs-s-apply button:has-text('Easy Apply')",
+            ".jobs-s-apply button:has-text('সহজে আবেদন জানান')",
             "div.jobs-apply-button--top-card button",
         ]
 
@@ -51,9 +53,11 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
         for sel in easy_apply_selectors:
             candidate = page.locator(sel).first
             if candidate.is_visible(timeout=1500):
-                # Verify it does not say just "Apply" (which redirects externally)
-                btn_text = candidate.inner_text().strip()
-                if "easy apply" in btn_text.lower():
+                btn_text = candidate.inner_text().strip().lower()
+                if any(x in btn_text for x in ["easy apply", "সহজে আবেদন"]):
+                    apply_btn = candidate
+                    break
+                elif "apply" in btn_text and "easy" in btn_text:
                     apply_btn = candidate
                     break
 
@@ -90,12 +94,13 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
         BrowserManager.safe_click(apply_btn)
         BrowserManager.human_delay(2.0, 3.5)
 
-        # Modal / Form container detection (supports both classic dialog and modern drawer)
+        # Modal / Form container detection (supports HTML5 dialog, classic modal, and modern drawer)
         wizard_active = False
         for sel in [
             "button:has-text('Submit application')",
             "button:has-text('Review')",
             "button:has-text('Next')",
+            "dialog",
             "div.jobs-easy-apply-modal",
             "div[role='dialog']",
         ]:
@@ -107,7 +112,7 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
             log.warning("Easy Apply form/modal did not appear.")
             return "FAILED"
 
-        modal = page.locator("div.jobs-easy-apply-modal, div[role='dialog'], form:has(button:has-text('Next')), body").first
+        modal = page.locator("dialog, div.jobs-easy-apply-modal, div[role='dialog'], [data-view-name='job-application-modal'], form:has(button:has-text('Next')), body").first
 
         # Wizard Loop: Process up to 8 steps
         step_count = 0
@@ -115,20 +120,38 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
 
         while step_count < max_steps:
             step_count += 1
+            log.info(f"[cyan]=== Processing Wizard Step {step_count} ===[/cyan]")
             BrowserManager.human_delay(1.0, 2.0)
 
             # Step A: Answer form fields on current step
             fill_current_step_fields(page, modal)
 
-            # Step B: Check for 'Submit application' button
-            submit_btn = page.locator("button:has-text('Submit application'), button[aria-label*='Submit application']").first
-            if submit_btn.is_visible(timeout=1500):
+            # Step B: Check for 'Submit application' button (English, Bengali, and generic aria)
+            submit_btn = page.locator("button:has-text('Submit application'), button:has-text('আবেদন জমা দিন'), button[aria-label*='Submit' i], button[aria-label*='জমা দিন']").first
+            if not submit_btn.is_visible(timeout=1500):
+                # Scroll dialog down to reveal footer submit button if needed
+                try:
+                    modal.evaluate("el => el.scrollTo(0, el.scrollHeight)")
+                    BrowserManager.human_delay(0.5, 1.0)
+                except Exception:
+                    pass
+
+            if submit_btn.is_visible(timeout=2000):
                 log.info("Reached final review step. Submitting application...")
+                submit_btn.scroll_into_view_if_needed()
                 BrowserManager.safe_click(submit_btn)
                 BrowserManager.human_delay(3.0, 5.0)
 
+                # Capture submission proof screenshot
+                proof_path = "data/exports/proof_linkedin_applied.png"
+                try:
+                    page.screenshot(path=proof_path)
+                    log.info(f"[bold green]Saved live LinkedIn application proof to: {proof_path}[/bold green]")
+                except Exception:
+                    pass
+
                 # Close post-apply popup or 'Done' dialog if present
-                done_btn = page.locator("button:has-text('Done'), button[aria-label='Dismiss']").first
+                done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label='Dismiss']").first
                 if done_btn.is_visible(timeout=3000):
                     BrowserManager.safe_click(done_btn)
 
@@ -144,15 +167,17 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                 )
                 return "APPLIED"
 
-            # Step C: Check for 'Review' button
-            review_btn = page.locator("button:has-text('Review'), button[aria-label*='Review']").first
+            # Step C: Check for 'Review' button (English, Bengali, and generic aria)
+            review_btn = page.locator("button:has-text('Review'), button:has-text('পর্যালোচনা'), button[aria-label*='Review' i], button[aria-label*='পর্যালোচনা']").first
             if review_btn.is_visible(timeout=1500):
+                log.info(f"Found Review button on step {step_count}. Clicking Review...")
                 BrowserManager.safe_click(review_btn)
                 continue
 
-            # Step D: Check for 'Next' button
-            next_btn = page.locator("button:has-text('Next'), button[aria-label*='Continue to next step']").first
+            # Step D: Check for 'Next' button (English, Bengali, and generic aria)
+            next_btn = page.locator("button:has-text('Next'), button:has-text('পরবর্তী'), button[aria-label*='Continue' i], button[aria-label*='Next' i], button[aria-label*='পরবর্তী']").first
             if next_btn.is_visible(timeout=1500):
+                log.info(f"Found Next button on step {step_count}. Clicking Next...")
                 BrowserManager.safe_click(next_btn)
                 continue
 
@@ -209,16 +234,17 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
         return "FAILED"
 
 def fill_current_step_fields(page: Page, modal: Locator):
-    """Fills out standard questions on the active modal page."""
+    """Fills out standard questions on the active modal page with AI and smart heuristics."""
     try:
         # 1. Phone number field
-        phone_inputs = modal.locator("input[id*='phoneNumber'], input[name*='phone' i]").all()
+        phone_inputs = modal.locator("input[id*='phoneNumber'], input[name*='phone' i], input[aria-label*='phone' i]").all()
         for p_inp in phone_inputs:
             if p_inp.is_visible() and not p_inp.input_value().strip():
+                p_inp.scroll_into_view_if_needed()
                 p_inp.fill(settings.profile.phone)
 
-        # 2. Numeric inputs (Years of experience, CTC, Notice period)
-        text_inputs = modal.locator("input[type='text'], input[type='number']").all()
+        # 2. Text & Numeric inputs (Years of experience, CTC, Notice period, Commute)
+        text_inputs = modal.locator("input[type='text'], input[type='number'], textarea").all()
         for inp in text_inputs:
             if not inp.is_visible():
                 continue
@@ -227,70 +253,105 @@ def fill_current_step_fields(page: Page, modal: Locator):
             if inp.input_value().strip():
                 continue
 
-            # Check label or aria-label
-            lbl_id = inp.get_attribute("aria-labelledby") or ""
-            label_text = ""
-            if lbl_id:
-                lbl_elem = modal.locator(f"#{lbl_id}").first
-                if lbl_elem.is_visible():
-                    label_text = lbl_elem.inner_text().lower()
+            inp.scroll_into_view_if_needed()
+
+            # Check label, aria-label, aria-labelledby, placeholder, or parent
+            label_text = (inp.get_attribute("aria-label") or "").strip()
+            if not label_text:
+                lbl_id = inp.get_attribute("aria-labelledby") or ""
+                if lbl_id:
+                    lbl_elem = modal.locator(f"#{lbl_id}").first
+                    if lbl_elem.is_visible():
+                        label_text = lbl_elem.inner_text().strip()
+
+            if not label_text:
+                inp_id = inp.get_attribute("id") or ""
+                if inp_id:
+                    lbl_elem = modal.locator(f"label[for='{inp_id}']").first
+                    if lbl_elem.is_visible():
+                        label_text = lbl_elem.inner_text().strip()
 
             if not label_text:
                 parent = inp.locator("xpath=../..").first
                 if parent.is_visible():
-                    label_text = parent.inner_text().lower()
+                    label_text = parent.inner_text().strip()
+
+            label_lower = label_text.lower()
 
             # Smart answering based on context
-            if "how many years" in label_text or "experience" in label_text:
+            if "how many years" in label_lower or "total experience" in label_lower or "experience" in label_lower:
                 inp.fill(str(settings.profile.years_of_experience))
-            elif "notice" in label_text:
-                inp.fill(str(settings.profile.notice_period_days))
-            elif "salary" in label_text or "ctc" in label_text or "compensation" in label_text:
+            elif "current ctc" in label_lower or "current salary" in label_lower:
+                inp.fill(str(settings.profile.current_salary_lpa))
+            elif "expected ctc" in label_lower or "expected salary" in label_lower:
                 inp.fill(str(settings.profile.expected_salary_lpa))
+            elif "how soon" in label_lower or "notice" in label_lower or "days" in label_lower or "যোগদান" in label_lower:
+                val = str(settings.profile.notice_period_days)
+                if "day" in label_lower or "দিন" in label_lower:
+                    if "immediate" in val.lower():
+                        inp.fill("0")
+                    else:
+                        digits = "".join(filter(str.isdigit, val))
+                        inp.fill(digits or "0")
+                else:
+                    inp.fill(val)
+            elif "travel time" in label_lower or "commute" in label_lower or "minutes" in label_lower:
+                inp.fill("30")
             elif ai_assistant.is_active and label_text:
                 # Use Gemini AI for custom/non-standard questions
                 ai_val = ai_assistant.answer_question(label_text, field_type="text")
                 if ai_val:
-                    inp.fill(ai_val)
+                    inp.fill(str(ai_val))
+                else:
+                    inp.fill("3")
+            else:
+                inp.fill("3")
 
-        # 3. Radio options (Yes / No or custom choices)
-        radio_groups = modal.locator("fieldset").all()
+        # 3. Radio options (Modern 2026 role='radio', fieldset, or custom choices)
+        radio_groups = modal.locator("fieldset, [role='radiogroup']").all()
         for group in radio_groups:
             if not group.is_visible():
                 continue
-            grp_text = group.inner_text().lower()
+            group.scroll_into_view_if_needed()
+            
+            # Extract question text from previous element, legend, or group text
+            question_text = group.evaluate('''el => {
+                let prev = el.previousElementSibling;
+                if (prev && prev.innerText.trim()) return prev.innerText.trim();
+                let legend = el.querySelector('legend');
+                if (legend && legend.innerText.trim()) return legend.innerText.trim();
+                return el.innerText.trim();
+            }''').lower()
 
-            # If Gemini is active, let it choose the optimal option among labels
-            options = [lbl.inner_text().strip() for lbl in group.locator("label").all() if lbl.is_visible()]
-            if ai_assistant.is_active and options:
-                best_choice = ai_assistant.answer_question(group.inner_text().split("\n")[0], field_type="radio", options=options)
-                matched_lbl = group.locator(f"label:has-text('{best_choice}')").first
-                if matched_lbl.is_visible():
-                    try:
-                        matched_lbl.click()
-                        continue
-                    except Exception:
-                        pass
+            # Check if any radio in this group is already selected
+            has_checked = group.locator("input[type='radio']:checked, div[role='radio'][aria-checked='true']").count() > 0
+            if has_checked:
+                continue
 
-            # Fallback heuristic matching
-            # Sponsorship questions -> usually No
-            if "sponsorship" in grp_text or "visa" in grp_text:
-                target_choice = "yes" if settings.profile.require_visa_sponsorship else "no"
-            # Authorization / Legally permitted -> usually Yes
-            elif "authorized" in grp_text or "legally" in grp_text or "clearance" in grp_text:
-                target_choice = "yes" if settings.profile.authorized_to_work else "no"
-            # Commute / comfortable with role -> Yes
-            elif "comfortable" in grp_text or "commute" in grp_text or "relocate" in grp_text:
-                target_choice = "yes"
+            # Determine desired choice (Yes vs No or custom option)
+            target_choice = "Yes"
+            if "sponsorship" in question_text or "visa" in question_text:
+                target_choice = "Yes" if settings.profile.require_visa_sponsorship else "No"
+            elif "criminal" in question_text or "felony" in question_text:
+                target_choice = "No"
+            elif ai_assistant.is_active:
+                options = [lbl.inner_text().strip() for lbl in group.locator("div[role='radio'], label, p").all() if lbl.inner_text().strip() in ["Yes", "No"]]
+                if options:
+                    ai_choice = ai_assistant.answer_question(question_text, field_type="radio", options=options)
+                    if ai_choice:
+                        target_choice = ai_choice
+
+            # Click the matching radio or container
+            target_elem = group.locator(f"div[role='radio']:has-text('{target_choice}'), label:has-text('{target_choice}'), p:has-text('{target_choice}')").first
+            if target_elem.is_visible():
+                target_elem.scroll_into_view_if_needed()
+                target_elem.click()
             else:
-                target_choice = "yes"
-
-            choice_radio = group.locator(f"label:has-text('{target_choice.capitalize()}'), input[value*='{target_choice}' i]").first
-            if choice_radio.is_visible():
-                try:
-                    choice_radio.click()
-                except Exception:
-                    pass
+                # Fallback click on radio input
+                r_inp = group.locator(f"input[type='radio'][value*='{target_choice.lower()}']").first
+                if r_inp.is_visible():
+                    r_inp.scroll_into_view_if_needed()
+                    r_inp.click()
 
         # 4. Resume upload if required and file input exists
         file_input = modal.locator("input[type='file']").first
@@ -308,6 +369,14 @@ def fill_current_step_fields(page: Page, modal: Locator):
         for sel in selects:
             if not sel.is_visible():
                 continue
+
+            # If dropdown already has a valid pre-selected choice (like candidate email or +91 country code), keep it!
+            cur_val = sel.evaluate("el => el.value")
+            cur_text = sel.evaluate("el => el.options[el.selectedIndex]?.text || ''").strip().lower()
+            if cur_val and not any(k in cur_text for k in ["select", "choose", "নির্বাচন"]):
+                continue
+
+            sel.scroll_into_view_if_needed()
             options = [o.inner_text().strip() for o in sel.locator("option").all() if o.inner_text().strip()]
             
             # Let Gemini pick the best dropdown option
@@ -336,12 +405,12 @@ def fill_current_step_fields(page: Page, modal: Locator):
 def dismiss_modal(page: Page, modal: Optional[Locator] = None):
     """Safely closes modal and confirms discard so session remains clean."""
     try:
-        close_btn = page.locator("button[aria-label*='Dismiss' i], button.artdeco-modal__dismiss, button[aria-label*='Close' i]").first
+        close_btn = page.locator("button[aria-label*='Dismiss' i], button.artdeco-modal__dismiss, button[aria-label*='Close' i], button[aria-label*='বাতিল' i], dialog button[aria-label*='Dismiss' i]").first
         if close_btn.is_visible(timeout=1500):
             BrowserManager.safe_click(close_btn)
             BrowserManager.human_delay(1.0, 1.8)
 
-            discard_btn = page.locator("button[data-control-name='discard_application_confirm_btn'], button:has-text('Discard')").first
+            discard_btn = page.locator("button[data-control-name='discard_application_confirm_btn'], button:has-text('Discard'), button:has-text('বাতিল করুন')").first
             if discard_btn.is_visible(timeout=2000):
                 BrowserManager.safe_click(discard_btn)
                 BrowserManager.human_delay(1.0, 1.5)

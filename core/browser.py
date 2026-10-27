@@ -83,7 +83,7 @@ class BrowserManager:
                     )
                 try:
                     self.context.add_cookies([
-                        {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/"}
+                        {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/", "secure": True, "sameSite": "None"}
                     ])
                 except Exception:
                     pass
@@ -174,6 +174,12 @@ class BrowserManager:
             page.set_extra_http_headers({
                 "Accept-Language": "en-US,en;q=0.9"
             })
+            try:
+                page.context.add_cookies([
+                    {"name": "lang", "value": "v=2&lang=en-us", "domain": ".linkedin.com", "path": "/", "secure": True, "sameSite": "None"}
+                ])
+            except Exception:
+                pass
             page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
@@ -187,6 +193,11 @@ class BrowserManager:
                 window.chrome = {
                     runtime: {}
                 };
+                try {
+                    if (window.location && window.location.hostname && window.location.hostname.includes('linkedin.com')) {
+                        document.cookie = 'lang="v=2&lang=en-us"; domain=.linkedin.com; path=/; Secure; SameSite=None';
+                    }
+                } catch(e) {}
             """)
         except Exception as e:
             log.debug(f"Could not apply extra stealth scripts: {e}")
