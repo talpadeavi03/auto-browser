@@ -48,12 +48,34 @@ def construct_linkedin_search_url(
 
     return f"https://www.linkedin.com/jobs/search/?{urllib.parse.urlencode(params)}"
 
+def ensure_linkedin_english(page: Page):
+    """Guarantees user's LinkedIn account site language preference is permanently English."""
+    try:
+        lang = page.locator("html").get_attribute("lang") or ""
+        if lang and not lang.startswith("en"):
+            log.info("[yellow]Detected non-English LinkedIn language. Auto-switching account to English (en_US)...[/yellow]")
+            page.goto("https://www.linkedin.com/mypreferences/d/settings/language", wait_until="networkidle", timeout=20000)
+            page.evaluate('''() => {
+                let sel = document.querySelector('select[data-test-setting-dropdown]');
+                if (sel && sel.value !== 'en_US') {
+                    sel.value = 'en_US';
+                    sel.dispatchEvent(new Event('input', { bubbles: true }));
+                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }''')
+            page.wait_for_timeout(2000)
+            log.info("[green]✓ Successfully switched and persisted LinkedIn language to English (en_US)![/green]")
+    except Exception as e:
+        log.debug(f"Language auto-switch note: {e}")
+
 def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
-    """Verifies whether user is actively authenticated on LinkedIn."""
+    """Verifies whether user is actively authenticated on LinkedIn and enforces English."""
     try:
         if navigate:
             page.goto("https://www.linkedin.com/feed/", timeout=25000, wait_until="domcontentloaded")
             BrowserManager.human_delay(1.5, 2.5)
+
+        ensure_linkedin_english(page)
 
         current_url = page.url.lower()
         if "login" in current_url or "checkpoint" in current_url or "authwall" in current_url:
