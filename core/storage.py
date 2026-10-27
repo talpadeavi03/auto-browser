@@ -267,32 +267,58 @@ class Storage:
             "accurately, professionally, and truthfully according to the candidate profile."
         )
 
+        # 1. Load existing samples to ensure dataset is cumulative across CI/CD runs
+        existing_entries = []
+        seen_keys = set()
+        if out_file.exists():
+            try:
+                for line in out_file.read_text(encoding="utf-8").splitlines():
+                    if line.strip():
+                        item = json.loads(line)
+                        k = (item.get("input", "").strip(), item.get("output", "").strip())
+                        if k not in seen_keys:
+                            seen_keys.add(k)
+                            existing_entries.append(item)
+            except Exception as e:
+                log.warning(f"Error reading existing dataset ({e}), starting fresh merge.")
+
+        # 2. Extract new interactions from database
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM training_interactions ORDER BY id ASC")
             rows = cursor.fetchall()
 
-        count = 0
-        with open(out_file, "w", encoding="utf-8") as f:
-            for row in rows:
-                opts = json.loads(row["options_json"]) if row["options_json"] else []
-                options_str = f"\nAvailable Options: {', '.join(opts)}" if opts else ""
-                user_instruction = (
-                    f"Recruiter Question: '{row['question_or_label']}'\n"
-                    f"Field Type: {row['field_type']}{options_str}"
-                )
-                if row["context_snippet"]:
-                    user_instruction += f"\nContext: {row['context_snippet']}"
+        new_count = 0
+        for row in rows:
+            opts = json.loads(row["options_json"]) if row["options_json"] else []
+            options_str = f"\nAvailable Options: {', '.join(opts)}" if opts else ""
+            user_instruction = (
+                f"Recruiter Question: '{row['question_or_label']}'\n"
+                f"Field Type: {row['field_type']}{options_str}"
+            )
+            if row["context_snippet"]:
+                user_instruction += f"\nContext: {row['context_snippet']}"
 
-                entry = {
+            ans = str(row["chosen_answer"] or "")
+            k = (user_instruction.strip(), ans.strip())
+            if k not in seen_keys:
+                seen_keys.add(k)
+                existing_entries.append({
                     "instruction": system_prompt,
                     "input": user_instruction,
-                    "output": row["chosen_answer"]
-                }
-                f.write(json.dumps(entry) + "\n")
-                count += 1
+                    "output": ans
+                })
+                new_count += 1
 
-        log.info(f"[bold green]✓ Exported {count} training samples to {out_file} for Google Colab fine-tuning![/bold green]")
+        # 3. Only write if we have entries (never wipe out file with 0 bytes)
+        if existing_entries:
+            with open(out_file, "w", encoding="utf-8") as f:
+                for item in existing_entries:
+                    f.write(json.dumps(item) + "\n")
+            log.info(f"[bold green]✓ Dataset preserved & synchronized ({len(existing_entries)} total samples, {new_count} new) at {out_file}![/bold green]")
+        else:
+            log.info(f"No interactions found to export; existing dataset file maintained as is.")
+
         return out_file
 
 db = Storage()
