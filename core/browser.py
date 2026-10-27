@@ -124,6 +124,9 @@ class BrowserManager:
                     cookies_to_load = data.get("cookies", [])
                 else:
                     clean_b64 = "".join(auth_env.split())
+                    missing_padding = len(clean_b64) % 4
+                    if missing_padding:
+                        clean_b64 += "=" * (4 - missing_padding)
                     raw_json = base64.b64decode(clean_b64, validate=False).decode("utf-8")
                     data = json.loads(raw_json)
                     cookies_to_load = data.get("cookies", [])

@@ -65,9 +65,12 @@ jobs:
               except Exception as e:
                   print(f'Raw JSON parsing failed: {e}')
 
-          # Case 2: Base64 encoded string (clean whitespace, newlines, tabs)
+          # Case 2: Base64 encoded string (clean whitespace, newlines, tabs, and auto-fix padding)
           try:
               clean_b64 = ''.join(raw.split())
+              missing_padding = len(clean_b64) % 4
+              if missing_padding:
+                  clean_b64 += '=' * (4 - missing_padding)
               decoded = base64.b64decode(clean_b64, validate=False).decode('utf-8')
               data = json.loads(decoded)
               with open('data/auth_state.json', 'w') as f:
