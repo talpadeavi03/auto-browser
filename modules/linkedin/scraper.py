@@ -75,6 +75,7 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
 
         current_url = page.url.lower()
         if any(x in current_url for x in ["login", "checkpoint", "authwall", "uas/login"]):
+            log.warning(f"LinkedIn session inactive: page redirected to authwall/login URL: {page.url}")
             return False
 
         if any(x in current_url for x in ["/feed", "/mynetwork", "/jobs", "/in/", "/mypreferences"]):
@@ -96,9 +97,12 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
         is_auth = ("linkedin.com" in current_url) and not any(x in current_url for x in ["login", "checkpoint", "authwall"])
         if is_auth:
             ensure_linkedin_english(page)
-        return is_auth
+            return True
+        
+        log.warning(f"LinkedIn session verification failed: Current URL is '{page.url}' (no auth indicator visible)")
+        return False
     except Exception as e:
-        log.debug(f"Error checking LinkedIn login status: {e}")
+        log.warning(f"Error checking LinkedIn login status: {e}")
         return False
 
 def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int = 25) -> List[Dict[str, str]]:
