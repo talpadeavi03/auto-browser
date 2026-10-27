@@ -202,24 +202,32 @@ python mcp_server.py
 
 ---
 
-## 9. Google Colab ML Training Step-by-Step
+## 9. Google Colab ML Training Step-by-Step with MLflow
 
-Train a specialized Small Language Model (`Qwen-2.5-1.5B-Instruct`) for free:
+Train a specialized Small Language Model (`Qwen-2.5-1.5B-Instruct`) for free with **MLflow Experiment Tracking & Model Registry**:
 
-1. **Export Latest Dataset:**
+1. **Export Latest Cumulative Dataset:**
    ```bash
    python main.py export-dataset
    ```
-   *(Creates `data/training_dataset.jsonl`)*.
+   *(Creates or preserves `data/training_dataset.jsonl`)*.
 2. **Open in Google Colab:**
-   * Go to [Google Colab](https://colab.research.google.com/).
-   * Click **File $\rightarrow$ Upload notebook**, and upload [`notebooks/train_colab.ipynb`](file:///notebooks/train_colab.ipynb).
+   * Go to [Google Colab](https://colab.research.google.com/) or click the **Open In Colab** badge in [`notebooks/train_colab.ipynb`](file:///home/sudo69/Projects/auto-browser/notebooks/train_colab.ipynb).
 3. **Select Free GPU:**
    * Click **Runtime $\rightarrow$ Change runtime type $\rightarrow$ T4 GPU**.
 4. **Click "Run All":**
    * The notebook clones your repo, loads `training_dataset.jsonl`, attaches 4-bit LoRA adapters, and trains with `SFTTrainer` in **3 to 5 minutes**.
-5. **Save to Hugging Face Hub (Free):**
-   * Provide your free Hugging Face Write Token in Step 7 of the notebook to push your model directly to Hugging Face.
+   * It logs all training loss, epochs, and hyperparameters live into **MLflow**.
+5. **Model Registry & Storage (100% Free):**
+   * **MLflow Model Registry (via DagsHub / Colab):** Registers the model under `AutoBrowser-DevOps-Agent` with versioning.
+   * **Hugging Face Hub:** Push weights to `talpadeavi03/auto-browser-devops-agent`.
+   * **Google Drive:** Permanent local LoRA checkpoint backup.
+   * **Ollama CPU:** Merged GGUF file for local zero-cost inference.
+6. **Load Model from MLflow Anywhere:**
+   ```python
+   import mlflow
+   loaded_agent = mlflow.transformers.load_model("models:/AutoBrowser-DevOps-Agent/latest")
+   ```
 
 ---
 

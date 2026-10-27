@@ -209,15 +209,26 @@ Exports records into ChatML/Alpaca SFT format ready for training:
 * **Hardware:** Free Google Colab T4 GPU (Runtime: 3 to 5 minutes).
 
 ### 5.4 Free Model Registry & Serving
-1. **Hugging Face Hub (Zero Cost):**
+1. **MLflow Tracking & Model Registry (100% Free via DagsHub / Colab):**
+   - **Experiment Tracking:** Tracks training loss, validation loss, learning rate schedules, and epochs in real-time.
+   - **Model Registry:** Direct model versioning and staging (`models:/AutoBrowser-DevOps-Agent/latest`).
+   - **Integration:** Free remote MLflow server via [DagsHub](https://dagshub.com) (`dagshub.init(repo_owner='talpadeavi03', repo_name='auto-browser', mlflow=True)`).
+   - **Loading Anywhere:**
+     ```python
+     import mlflow
+     agent = mlflow.transformers.load_model("models:/AutoBrowser-DevOps-Agent/latest")
+     ```
+2. **Hugging Face Hub (Zero Cost):**
    ```python
    from huggingface_hub import login
    login("hf_your_token")
-   model.push_to_hub("talpadeavi/auto-browser-devops-agent")
+   model.push_to_hub("talpadeavi03/auto-browser-devops-agent")
    ```
-2. **Local GGUF CPU Serving (Zero Cost):**
+3. **Local GGUF CPU Serving (Zero Cost):**
    - Export merged weights to GGUF (`q4_k_m`).
    - Run locally on any laptop CPU with [Ollama](https://ollama.ai): `ollama run devops-agent`.
+4. **Google Drive Backup:**
+   - Permanent LoRA checkpoints saved to `/content/drive/MyDrive/auto_browser_qwen_lora`.
 
 ---
 
