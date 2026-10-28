@@ -20,7 +20,7 @@ from modules.linkedin.scraper import is_linkedin_logged_in, scrape_linkedin_jobs
 from modules.linkedin.easy_apply import run_linkedin_easy_apply
 from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
-from core.auto_auth import auto_login_linkedin, auto_login_naukri
+from core.auto_auth import auto_login_linkedin, auto_login_naukri, persist_session_cookies
 
 @click.group()
 def cli():
@@ -63,10 +63,11 @@ def login(platform: str):
             console.print("\n[bold cyan]👉 Please log into LinkedIn in the opened Brave window.[/bold cyan]")
             Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your LinkedIn feed[/bold green]")
 
+            count = persist_session_cookies(page)
             if is_linkedin_logged_in(page, navigate=True):
-                console.print("[bold green]✓ LinkedIn authenticated successfully! Session stored.[/bold green]")
+                console.print(f"[bold green]✓ LinkedIn authenticated successfully! {count} clean session cookies saved to data/auth_state.json![/bold green]")
             else:
-                console.print("[bold yellow]LinkedIn session cookies have been saved to disk.[/bold yellow]")
+                console.print(f"[bold yellow]Saved {count} LinkedIn cookies to disk.[/bold yellow]")
 
         # Naukri login
         if platform in ("all", "naukri"):
@@ -87,12 +88,14 @@ def login(platform: str):
             console.print("\n[bold cyan]👉 Please log into Naukri in the opened Brave window.[/bold cyan]")
             Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your Naukri dashboard[/bold green]")
 
+            count = persist_session_cookies(page)
             if is_naukri_logged_in(page, navigate=True):
-                console.print("[bold green]✓ Naukri authenticated successfully! Session stored.[/bold green]")
+                console.print(f"[bold green]✓ Naukri authenticated successfully! {count} clean session cookies saved to data/auth_state.json![/bold green]")
             else:
-                console.print("[bold yellow]Naukri session cookies have been saved to disk.[/bold yellow]")
+                console.print(f"[bold yellow]Saved {count} Naukri cookies to disk.[/bold yellow]")
 
-    console.print("\n[bold green]Login procedure completed! Session saved in data/browser_profile.[/bold green]")
+        final_count = persist_session_cookies(page)
+        console.print(f"\n[bold green]✓ Complete session saved ({final_count} total cookies in data/auth_state.json & data/auth_secret_for_github.txt)![/bold green]")
 
 @cli.command("auto-login")
 @click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform for auto-login")
@@ -259,7 +262,8 @@ def export_auth():
     with get_browser() as browser:
         context = browser.context
         cookies = context.cookies()
-        filtered = [c for c in cookies if any(d in c.get("domain", "") for d in ["naukri.com", "linkedin.com"])]
+        from core.browser import clean_and_normalize_cookies
+        filtered = clean_and_normalize_cookies(cookies)
         
         if not filtered:
             console.print("[bold red]No active Naukri or LinkedIn cookies found.[/bold red] Please make sure you are logged in first.")

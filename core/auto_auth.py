@@ -145,8 +145,9 @@ def auto_login_linkedin(page: Page) -> bool:
     """
     # 1. Try Google Sign-In first if available
     try:
-        page.goto("https://www.linkedin.com/login", timeout=30000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(1.5, 2.5)
+        if "linkedin.com/login" not in page.url.lower():
+            page.goto("https://www.linkedin.com/login", timeout=30000, wait_until="domcontentloaded")
+            BrowserManager.human_delay(1.5, 2.5)
         if login_with_google(page, DEFAULT_GOOGLE_ACCOUNT):
             current_url = page.url.lower()
             if any(x in current_url for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):

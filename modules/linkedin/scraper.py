@@ -75,8 +75,9 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
                 page.goto("https://www.linkedin.com/feed/", timeout=20000, wait_until="domcontentloaded")
                 BrowserManager.human_delay(1.5, 2.5)
             except Exception as nav_err:
-                log.warning(f"Initial feed check ({nav_err}). Navigating to login page for verification...")
+                log.warning(f"Initial feed check ({nav_err}). Clearing stale cookies and navigating to login...")
                 try:
+                    page.context.clear_cookies()
                     page.goto("https://www.linkedin.com/login", timeout=20000, wait_until="domcontentloaded")
                     BrowserManager.human_delay(1.5, 2.5)
                 except Exception as l_err:
