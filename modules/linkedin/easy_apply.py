@@ -96,17 +96,23 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
 
         # Modal / Form container detection (supports HTML5 dialog, classic modal, and modern drawer)
         wizard_active = False
-        for sel in [
+        modal_candidates = [
+            "div.jobs-easy-apply-modal",
+            "div[role='dialog']",
+            "dialog",
+            "[data-view-name='job-application-modal']",
             "button:has-text('Submit application')",
             "button:has-text('Review')",
             "button:has-text('Next')",
-            "dialog",
-            "div.jobs-easy-apply-modal",
-            "div[role='dialog']",
-        ]:
-            if page.locator(sel).first.is_visible(timeout=2500):
-                wizard_active = True
-                break
+        ]
+        for sel in modal_candidates:
+            try:
+                candidate = page.locator(sel).first
+                if candidate.is_visible(timeout=2000):
+                    wizard_active = True
+                    break
+            except Exception:
+                pass
 
         if not wizard_active:
             log.warning("Easy Apply form/modal did not appear.")
@@ -128,15 +134,24 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
 
             # Step B: Check for 'Submit application' button (English, Bengali, and generic aria)
             submit_btn = page.locator("button:has-text('Submit application'), button:has-text('আবেদন জমা দিন'), button[aria-label*='Submit' i], button[aria-label*='জমা দিন']").first
-            if not submit_btn.is_visible(timeout=1500):
+            is_submit_visible = False
+            try:
+                if submit_btn.is_visible(timeout=1500):
+                    is_submit_visible = True
+            except Exception:
+                pass
+
+            if not is_submit_visible:
                 # Scroll dialog down to reveal footer submit button if needed
                 try:
                     modal.evaluate("el => el.scrollTo(0, el.scrollHeight)")
                     BrowserManager.human_delay(0.5, 1.0)
+                    if submit_btn.is_visible(timeout=1500):
+                        is_submit_visible = True
                 except Exception:
                     pass
 
-            if submit_btn.is_visible(timeout=2000):
+            if is_submit_visible:
                 log.info("Reached final review step. Submitting application...")
                 submit_btn.scroll_into_view_if_needed()
                 BrowserManager.safe_click(submit_btn)
@@ -151,9 +166,12 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                     pass
 
                 # Close post-apply popup or 'Done' dialog if present
-                done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label='Dismiss']").first
-                if done_btn.is_visible(timeout=3000):
-                    BrowserManager.safe_click(done_btn)
+                try:
+                    done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label='Dismiss']").first
+                    if done_btn.is_visible(timeout=3000):
+                        BrowserManager.safe_click(done_btn)
+                except Exception:
+                    pass
 
                 log.info(f"[bold green]✓ Successfully applied to: {job_title} at {company} via Easy Apply![/bold green]")
                 db.record_applied_job(
@@ -169,14 +187,28 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
 
             # Step C: Check for 'Review' button (English, Bengali, and generic aria)
             review_btn = page.locator("button:has-text('Review'), button:has-text('পর্যালোচনা'), button[aria-label*='Review' i], button[aria-label*='পর্যালোচনা']").first
-            if review_btn.is_visible(timeout=1500):
+            is_review_visible = False
+            try:
+                if review_btn.is_visible(timeout=1500):
+                    is_review_visible = True
+            except Exception:
+                pass
+
+            if is_review_visible:
                 log.info(f"Found Review button on step {step_count}. Clicking Review...")
                 BrowserManager.safe_click(review_btn)
                 continue
 
             # Step D: Check for 'Next' button (English, Bengali, and generic aria)
             next_btn = page.locator("button:has-text('Next'), button:has-text('পরবর্তী'), button[aria-label*='Continue' i], button[aria-label*='Next' i], button[aria-label*='পরবর্তী']").first
-            if next_btn.is_visible(timeout=1500):
+            is_next_visible = False
+            try:
+                if next_btn.is_visible(timeout=1500):
+                    is_next_visible = True
+            except Exception:
+                pass
+
+            if is_next_visible:
                 log.info(f"Found Next button on step {step_count}. Clicking Next...")
                 BrowserManager.safe_click(next_btn)
                 continue
@@ -430,6 +462,7 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
             if applied_count >= max_apps:
                 break
 
+            BrowserManager.human_delay(2.5, 4.5)
             jobs = scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=15)
             for j in jobs:
                 if applied_count >= max_apps:

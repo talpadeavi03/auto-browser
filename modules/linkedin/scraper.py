@@ -141,7 +141,11 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
     scraped = []
 
     try:
-        page.goto(search_url, timeout=30000, wait_until="domcontentloaded")
+        try:
+            page.goto(search_url, timeout=25000, wait_until="commit")
+            page.wait_for_load_state("domcontentloaded", timeout=12000)
+        except Exception as g_err:
+            log.warning(f"Note navigating to search page: {g_err}")
         BrowserManager.human_delay(2.5, 4.0)
 
         # Scroll down incrementally to trigger dynamic listing load
