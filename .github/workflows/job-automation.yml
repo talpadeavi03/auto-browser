@@ -86,8 +86,20 @@ jobs:
         env:
           PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
+          LINKEDIN_LI_AT: ${{ secrets.LINKEDIN_LI_AT }}
+          LINKEDIN_USERNAME: ${{ secrets.LINKEDIN_USERNAME }}
+          LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
         run: |
           python -c "import mcp_server; print('✓ MCP Server verified successfully!')"
+          python -c "
+          import os
+          print('--- Cloud Authentication Diagnostics ---')
+          print('✓ AUTH_STORAGE_STATE secret set:', bool(os.getenv('AUTH_STORAGE_STATE', '').strip()))
+          print('✓ LINKEDIN_LI_AT dedicated secret set:', bool(os.getenv('LINKEDIN_LI_AT', '').strip()))
+          print('✓ LINKEDIN_USERNAME credential set:', bool(os.getenv('LINKEDIN_USERNAME', '').strip()))
+          print('✓ LINKEDIN_PASSWORD credential set:', bool(os.getenv('LINKEDIN_PASSWORD', '').strip()))
+          "
           python main.py --help
           python main.py stats
 
@@ -96,6 +108,7 @@ jobs:
           PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
+          LINKEDIN_LI_AT: ${{ secrets.LINKEDIN_LI_AT }}
           LINKEDIN_USERNAME: ${{ secrets.LINKEDIN_USERNAME }}
           LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
           NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME }}

@@ -188,6 +188,32 @@ class BrowserManager:
             except Exception as e:
                 log.warning(f"Could not read data/auth_state.json: {e}")
 
+        # Check for dedicated LINKEDIN_LI_AT secret (can be pasted directly in GitHub Secrets)
+        direct_li_at = (os.getenv("LINKEDIN_LI_AT") or "").strip()
+        if direct_li_at:
+            if "li_at=" in direct_li_at:
+                direct_li_at = direct_li_at.split("li_at=")[-1].split(";")[0].strip()
+            # Replace or add li_at and liap
+            cookies_to_load = [c for c in cookies_to_load if c.get("name") != "li_at"]
+            cookies_to_load.append({
+                "name": "li_at",
+                "value": direct_li_at,
+                "domain": ".linkedin.com",
+                "path": "/",
+                "secure": True,
+                "httpOnly": True,
+                "sameSite": "None"
+            })
+            cookies_to_load.append({
+                "name": "liap",
+                "value": "true",
+                "domain": ".linkedin.com",
+                "path": "/",
+                "secure": True,
+                "sameSite": "None"
+            })
+            log.info("[bold green]✓ Loaded dedicated LINKEDIN_LI_AT session cookie from environment![/bold green]")
+
         if cookies_to_load:
             try:
                 cleaned_cookies = clean_and_normalize_cookies(cookies_to_load)
