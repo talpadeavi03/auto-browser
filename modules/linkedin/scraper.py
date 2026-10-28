@@ -76,9 +76,13 @@ def is_linkedin_logged_in(page: Page, navigate: bool = False) -> bool:
                 page.goto("https://www.linkedin.com/jobs/", timeout=25000, wait_until="domcontentloaded")
                 BrowserManager.human_delay(1.5, 2.5)
             except Exception as nav_err:
-                log.warning(f"Initial jobs check ({nav_err}). Checking login status...")
-                if "login" in page.url.lower() or "authwall" in page.url.lower():
-                    pass
+                log.warning(f"Initial jobs check ({nav_err}). Clearing cookies and recovering...")
+                try:
+                    page.context.clear_cookies()
+                    page.goto("https://www.linkedin.com/login", timeout=20000, wait_until="domcontentloaded")
+                    BrowserManager.human_delay(1.5, 2.5)
+                except Exception as l_err:
+                    log.error(f"Failed to navigate to LinkedIn login: {l_err}")
 
         current_url = page.url.lower()
         if any(x in current_url for x in ["login", "checkpoint", "authwall", "uas/login"]):

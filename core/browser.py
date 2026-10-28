@@ -212,6 +212,14 @@ class BrowserManager:
                 "secure": True,
                 "sameSite": "None"
             })
+            cookies_to_load.append({
+                "name": "JSESSIONID",
+                "value": '"ajax:4917878486294893080"',
+                "domain": ".linkedin.com",
+                "path": "/",
+                "secure": True,
+                "sameSite": "None"
+            })
             log.info("[bold green]✓ Loaded dedicated LINKEDIN_LI_AT session cookie from environment![/bold green]")
 
         if cookies_to_load:
