@@ -175,8 +175,25 @@ def auto_login_linkedin(page: Page) -> bool:
                         page.wait_for_load_state("domcontentloaded", timeout=20000)
                         BrowserManager.human_delay(3.0, 5.0)
 
-                        current_url = page.url.lower()
-                        if any(x in current_url for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
+                        current_url = page.url
+                        log.info(f"Page after login submit: {current_url} | Title: {page.title()}")
+                        try:
+                            Path("data/exports").mkdir(parents=True, exist_ok=True)
+                            page.screenshot(path="data/exports/linkedin_login_result.png")
+                        except Exception:
+                            pass
+
+                        error_elem = page.locator("#error-for-username, #error-for-password, div.alert--error, [role='alert'], .form__label--error").first
+                        if error_elem.is_visible(timeout=2000):
+                            err_text = error_elem.inner_text().strip().replace("\n", " ")
+                            log.error(f"[red]LinkedIn server rejected credentials: {err_text}[/red]")
+
+                        if "checkpoint" in current_url.lower() or "challenge" in current_url.lower():
+                            header_elem = page.locator("h1, h2, #header, .content__header").first
+                            challenge_title = header_elem.inner_text().strip().replace("\n", " ") if header_elem.is_visible(timeout=1000) else "Verification required"
+                            log.warning(f"[yellow]LinkedIn security challenge triggered: '{challenge_title}' at {current_url}[/yellow]")
+
+                        if any(x in current_url.lower() for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
                             log.info("[bold green]✓ LinkedIn autonomous credential login successful![/bold green]")
                             persist_session_cookies(page)
                             return True
