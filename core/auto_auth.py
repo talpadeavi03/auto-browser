@@ -141,9 +141,57 @@ def login_with_google(page: Page, target_email: str = DEFAULT_GOOGLE_ACCOUNT) ->
 
 def auto_login_linkedin(page: Page) -> bool:
     """
-    Autonomously logs into LinkedIn using Google OAuth or direct credentials.
+    Autonomously logs into LinkedIn using direct credentials or Google OAuth.
+    Prioritizes direct credentials if available in environment secrets.
     """
-    # 1. Try Google Sign-In first if available
+    user = os.getenv("LINKEDIN_USERNAME") or getattr(settings.linkedin, "username", None)
+    pwd = os.getenv("LINKEDIN_PASSWORD") or getattr(settings.linkedin, "password", None)
+    has_creds = bool(user and pwd and "example.com" not in user and "your_" not in user and "your_" not in pwd)
+
+    # 1. Try Direct Credentials First if configured (fastest, most reliable in cloud)
+    if has_creds:
+        log.info(f"[cyan]Attempting autonomous LinkedIn credential login for: {user}...[/cyan]")
+        try:
+            if "linkedin.com/login" not in page.url.lower():
+                page.goto("https://www.linkedin.com/login", timeout=30000, wait_until="domcontentloaded")
+                BrowserManager.human_delay(1.5, 2.5)
+
+            user_input = page.locator("input[type='email']:visible, input#username:visible, input[name='session_key']:visible, input[id*='username']:visible").first
+            if user_input.is_visible(timeout=7000):
+                log.info("Typing LinkedIn username/email into form...")
+                BrowserManager.human_type(user_input, user)
+                BrowserManager.human_delay(0.5, 1.2)
+
+                pwd_input = page.locator("input[type='password']:visible, input#password:visible, input[name='session_password']:visible").first
+                if pwd_input.is_visible(timeout=5000):
+                    log.info("Typing LinkedIn password into form...")
+                    BrowserManager.human_type(pwd_input, pwd)
+                    BrowserManager.human_delay(0.8, 1.5)
+
+                    submit_btn = page.locator("button:has-text('Sign in'):visible, button[type='submit']:visible, button:has-text('Log in'):visible").first
+                    if submit_btn.is_visible():
+                        submit_btn.click()
+                        log.info("Submitted LinkedIn login credentials. Waiting for authentication...")
+                        page.wait_for_load_state("domcontentloaded", timeout=20000)
+                        BrowserManager.human_delay(3.0, 5.0)
+
+                        current_url = page.url.lower()
+                        if any(x in current_url for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
+                            log.info("[bold green]✓ LinkedIn autonomous credential login successful![/bold green]")
+                            persist_session_cookies(page)
+                            return True
+
+                        if page.locator(".global-nav__me-photo, nav.global-nav, img.global-nav__me-photo").first.is_visible(timeout=4000):
+                            log.info("[bold green]✓ LinkedIn autonomous login verified by navigation element![/bold green]")
+                            persist_session_cookies(page)
+                            return True
+            else:
+                log.warning("Could not find visible LinkedIn username/email input field on login page.")
+        except Exception as e:
+            log.warning(f"LinkedIn credential login attempt note: {e}")
+
+    # 2. Fallback to Google OAuth
+    log.info("Checking for Google Sign-In on LinkedIn login page...")
     try:
         if "linkedin.com/login" not in page.url.lower():
             page.goto("https://www.linkedin.com/login", timeout=30000, wait_until="domcontentloaded")
@@ -157,54 +205,7 @@ def auto_login_linkedin(page: Page) -> bool:
     except Exception as g_err:
         log.debug(f"LinkedIn Google login attempt note: {g_err}")
 
-    # 2. Fallback to direct credentials
-    user = os.getenv("LINKEDIN_USERNAME") or getattr(settings.linkedin, "username", None)
-    pwd = os.getenv("LINKEDIN_PASSWORD") or getattr(settings.linkedin, "password", None)
-
-    if not user or not pwd or "example.com" in user or "your_" in user or "your_" in pwd:
-        log.debug("LinkedIn real credentials not set in .env (contains template placeholder).")
-        return False
-
-    log.info(f"[cyan]Attempting autonomous LinkedIn credential login for: {user}...[/cyan]")
-    try:
-        page.goto("https://www.linkedin.com/login", timeout=30000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(1.5, 2.5)
-
-        user_input = page.locator("#username, input[name='session_key'], input[id*='username']").first
-        if not user_input.is_visible(timeout=5000):
-            return False
-
-        BrowserManager.human_type(user_input, user)
-        BrowserManager.human_delay(0.5, 1.2)
-
-        pwd_input = page.locator("#password, input[name='session_password'], input[id*='password']").first
-        if not pwd_input.is_visible(timeout=5000):
-            return False
-
-        BrowserManager.human_type(pwd_input, pwd)
-        BrowserManager.human_delay(0.8, 1.5)
-
-        submit_btn = page.locator("button[type='submit'], button:has-text('Sign in'), button:has-text('Log in')").first
-        submit_btn.click()
-
-        page.wait_for_load_state("domcontentloaded", timeout=20000)
-        BrowserManager.human_delay(3.0, 5.0)
-
-        current_url = page.url.lower()
-        if any(x in current_url for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
-            log.info("[bold green]✓ LinkedIn autonomous login successful![/bold green]")
-            persist_session_cookies(page)
-            return True
-
-        if page.locator(".global-nav__me-photo, nav.global-nav, img.global-nav__me-photo").first.is_visible(timeout=3000):
-            log.info("[bold green]✓ LinkedIn autonomous login verified by nav element![/bold green]")
-            persist_session_cookies(page)
-            return True
-
-        return False
-    except Exception as e:
-        log.error(f"Error during autonomous LinkedIn login: {e}")
-        return False
+    return False
 
 def auto_login_naukri(page: Page) -> bool:
     """
