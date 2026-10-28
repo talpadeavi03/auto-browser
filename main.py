@@ -18,6 +18,7 @@ from modules.naukri.scraper import scrape_naukri_jobs
 from modules.naukri.auto_apply import run_naukri_auto_apply
 from modules.linkedin.scraper import is_linkedin_logged_in, scrape_linkedin_jobs
 from modules.linkedin.easy_apply import run_linkedin_easy_apply
+from modules.linkedin.profile_booster import refresh_linkedin_profile
 from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
 from core.auto_auth import auto_login_linkedin, auto_login_naukri, persist_session_cookies
@@ -141,6 +142,18 @@ def naukri_refresh(headless: bool):
         else:
             console.print("[bold red]Failed to refresh profile. Verify login using 'python main.py login'.[/bold red]")
 
+@cli.command("linkedin-refresh")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def linkedin_refresh(headless: bool):
+    """Boost LinkedIn profile activity and verify cloud session."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        success = refresh_linkedin_profile(page)
+        if success:
+            console.print("[bold green]✓ LinkedIn profile boosted! Session verified & active in cloud.[/bold green]")
+        else:
+            console.print("[bold red]Failed to boost LinkedIn profile. Verify login using 'python main.py login'.[/bold red]")
+
 @cli.command("naukri-apply")
 @click.option("--limit", default=10, type=int, help="Max jobs to apply to")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
@@ -222,12 +235,17 @@ def run_all(limit: int, headless: bool):
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
 
-        # Step 1: Naukri Profile Refresh
-        console.print("\n[bold cyan]Step 1: Refreshing Naukri Profile Booster...[/bold cyan]")
+        # Step 1: Naukri & LinkedIn Profile Booster
+        console.print("\n[bold cyan]Step 1: Refreshing Profile Boosters (Naukri & LinkedIn)...[/bold cyan]")
         try:
             refresh_naukri_profile(page)
         except Exception as e:
             log.error(f"Naukri refresh step failed: {e}")
+
+        try:
+            refresh_linkedin_profile(page)
+        except Exception as e:
+            log.error(f"LinkedIn refresh step failed: {e}")
 
         # Step 2: LinkedIn Easy Apply
         console.print("\n[bold cyan]Step 2: Running LinkedIn Easy Apply...[/bold cyan]")

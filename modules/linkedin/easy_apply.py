@@ -480,4 +480,8 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
                 BrowserManager.human_delay(3.0, 6.0)
 
     log.info(f"[bold green]✓ LinkedIn Easy Apply run complete. Total applied: {applied_count}[/bold green]")
+    try:
+        db.record_profile_refresh("linkedin", f"Cloud Easy Apply session active ({applied_count} applied)")
+    except Exception as ref_err:
+        log.debug(f"Profile refresh record note: {ref_err}")
     return applied_count

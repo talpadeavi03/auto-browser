@@ -16,6 +16,7 @@ on:
         options:
           - 'run-all'
           - 'naukri-boost'
+          - 'linkedin-boost'
           - 'linkedin-apply'
           - 'naukri-apply'
           - 'scrape-jobs'
@@ -120,6 +121,7 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ]; then
             echo "⏰ Running Profile Booster & Auto-Apply sequence..."
             xvfb-run -a python main.py naukri-refresh || true
+            xvfb-run -a python main.py linkedin-refresh || true
             xvfb-run -a python main.py linkedin-apply --limit 5 || true
             xvfb-run -a python main.py naukri-apply --limit 5 || true
           elif [ "$ACTION" = "run-all" ]; then
@@ -127,6 +129,8 @@ jobs:
             xvfb-run -a python main.py run-all --limit 5 || true
           elif [ "$ACTION" = "naukri-boost" ]; then
             xvfb-run -a python main.py naukri-refresh
+          elif [ "$ACTION" = "linkedin-boost" ]; then
+            xvfb-run -a python main.py linkedin-refresh
           elif [ "$ACTION" = "linkedin-apply" ]; then
             xvfb-run -a python main.py linkedin-apply --limit 10
           elif [ "$ACTION" = "naukri-apply" ]; then

@@ -22,6 +22,7 @@ class AIAssistant:
             raw_key = None
         self.api_key = raw_key
         self.client = None
+        self._quota_exhausted = False
         if self.api_key and GENAI_AVAILABLE:
             try:
                 self.client = genai.Client(api_key=self.api_key)
@@ -31,7 +32,7 @@ class AIAssistant:
 
     @property
     def is_active(self) -> bool:
-        return self.client is not None
+        return self.client is not None and not self._quota_exhausted
 
     def get_candidate_context(self) -> str:
         """Constructs rich candidate background for prompt context."""
@@ -55,6 +56,130 @@ Candidate Background:
 - Comfortable working in: Pune, Bengaluru, Hybrid, or Remote
 """
 
+    def _heuristic_answer(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None
+    ) -> str:
+        """
+        Fast local deterministic answering heuristic when Gemini is inactive or rate-limited (429).
+        Derives high-accuracy answers from the candidate profile.
+        """
+        q = (question or "").lower().strip()
+
+        # Case 1: Dropdown or Radio options provided
+        if options:
+            clean_opts = [str(o).strip() for o in options if str(o).strip()]
+
+            # Negative response required
+            if any(k in q for k in ["sponsorship", "visa", "felony", "criminal", "misdemeanor", "convicted", "drug"]):
+                for opt in clean_opts:
+                    if opt.lower() in ["no", "none", "false", "never", "not required"]:
+                        return opt
+
+            # Affirmative response required
+            if any(k in q for k in [
+                "authorized", "eligible", "commute", "relocate", "hybrid", "remote", "shift",
+                "comfortable", "willing", "agreement", "certif", "clearance", "background check"
+            ]):
+                for opt in clean_opts:
+                    if opt.lower() in ["yes", "true", "i agree", "i am authorized"]:
+                        return opt
+
+            # Notice Period options
+            if any(k in q for k in ["notice", "joining", "soon"]):
+                for opt in clean_opts:
+                    if any(w in opt.lower() for w in ["immediate", "0-15", "15", "1 month", "< 15", "less than"]):
+                        return opt
+
+            # Experience options
+            if any(k in q for k in ["experience", "years"]):
+                for opt in clean_opts:
+                    if any(w in opt.lower() for w in ["3", "3-5", "2-4", "1-3"]):
+                        return opt
+
+            # Education options
+            if any(k in q for k in ["education", "degree", "qualification"]):
+                for opt in clean_opts:
+                    if any(w in opt.lower() for w in ["bachelor", "engineering", "b.e", "b.tech", "graduate"]):
+                        return opt
+
+            # Gender
+            if "gender" in q:
+                for opt in clean_opts:
+                    if "male" in opt.lower():
+                        return opt
+
+            # General affirmative fallback
+            for opt in clean_opts:
+                if opt.lower() in ["yes", "true"]:
+                    return opt
+
+            # Skip placeholders like "Select an option", "Choose..."
+            valid = [o for o in clean_opts if not any(p in o.lower() for p in ["select", "choose", "please", "--"])]
+            if valid:
+                return valid[0]
+            return clean_opts[0] if clean_opts else "Yes"
+
+        # Case 2: Text or Number inputs
+        if "notice" in q or "how soon" in q or "joining" in q:
+            return "0" if ("day" in q or field_type == "number") else "Immediate Joiner"
+
+        if "experience" in q or "years" in q or "duration" in q:
+            try:
+                exp_num = int(float(settings.profile.years_of_experience))
+            except Exception:
+                exp_num = 3
+            return str(exp_num) if (field_type == "number" or "whole number" in q) else str(settings.profile.years_of_experience)
+
+        if "current ctc" in q or "current salary" in q or "present ctc" in q:
+            return str(settings.profile.current_salary_lpa)
+
+        if "expected ctc" in q or "expected salary" in q:
+            return str(settings.profile.expected_salary_lpa)
+
+        if "sponsorship" in q or "visa" in q:
+            return "Yes" if settings.profile.require_visa_sponsorship else "No"
+
+        if "authorized" in q or "eligible" in q:
+            return "Yes"
+
+        if "github" in q:
+            return settings.profile.github_url or "https://github.com/talpadeavi03"
+
+        if "linkedin" in q:
+            return settings.profile.linkedin_url or "https://www.linkedin.com/in/talpadeavi/"
+
+        if "portfolio" in q or "website" in q:
+            return settings.profile.github_url or "https://github.com/talpadeavi03"
+
+        if "city" in q:
+            return settings.profile.city or "Pune"
+
+        if "state" in q:
+            return settings.profile.state or "Maharashtra"
+
+        if "pincode" in q or "postal" in q or "zip" in q:
+            return settings.profile.postal_code or "411001"
+
+        if "phone" in q or "mobile" in q:
+            return settings.profile.phone or "8999285015"
+
+        if "email" in q:
+            return settings.profile.email or "talpadeavi0303@gmail.com"
+
+        if "commute" in q or "relocate" in q or "shift" in q or "travel" in q or "comfortable" in q:
+            return "Yes"
+
+        if "felony" in q or "criminal" in q:
+            return "No"
+
+        if field_type == "radio":
+            return "Yes"
+
+        return "3" if field_type == "number" else "Yes"
+
     def answer_question(
         self,
         question: str,
@@ -64,9 +189,12 @@ Candidate Background:
     ) -> str:
         """
         Uses Gemini to generate the optimal, truthful answer to a recruiter's screening question.
+        Falls back to local heuristic answering on 429 quota exhaustion or API failure.
         """
         if not self.is_active:
-            return ""
+            ans = self._heuristic_answer(question, field_type, options)
+            log.info(f"[cyan]⚡ Heuristic answered:[/cyan] '{question}' -> [bold green]'{ans}'[/bold green]")
+            return ans
 
         options_str = f"\nAvailable options to pick from: {options}" if options else ""
         system_instruction = (
@@ -105,8 +233,16 @@ Provide ONLY the final answer to fill into the input box:
             log.info(f"[cyan]🤖 Gemini AI answered:[/cyan] '{question}' -> [bold green]'{answer}'[/bold green]")
             return answer
         except Exception as e:
-            log.warning(f"Gemini API call failed: {e}")
-            return ""
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                log.warning("Gemini API Free-Tier daily quota exceeded (429 RESOURCE_EXHAUSTED). Activating instant local heuristic answering engine for remainder of session.")
+                self._quota_exhausted = True
+            else:
+                log.warning(f"Gemini API call failed: {e}")
+
+            ans = self._heuristic_answer(question, field_type, options)
+            log.info(f"[cyan]⚡ Heuristic fallback answered:[/cyan] '{question}' -> [bold green]'{ans}'[/bold green]")
+            return ans
 
     def solve_captcha_image(self, b64_png: str) -> str:
         """
