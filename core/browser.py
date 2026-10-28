@@ -193,8 +193,8 @@ class BrowserManager:
         if direct_li_at:
             if "li_at=" in direct_li_at:
                 direct_li_at = direct_li_at.split("li_at=")[-1].split(";")[0].strip()
-            # Replace or add li_at and liap
-            cookies_to_load = [c for c in cookies_to_load if c.get("name") != "li_at"]
+            # Remove any stale/conflicting LinkedIn cookies from storage state to ensure a clean session
+            cookies_to_load = [c for c in cookies_to_load if "linkedin" not in c.get("domain", "").lower()]
             cookies_to_load.append({
                 "name": "li_at",
                 "value": direct_li_at,
