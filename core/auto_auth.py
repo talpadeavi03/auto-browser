@@ -193,10 +193,24 @@ def auto_login_linkedin(page: Page) -> bool:
                         err_text = error_elem.inner_text().strip().replace("\n", " ")
                         log.error(f"[red]LinkedIn server rejected credentials: {err_text}[/red]")
 
-                    if "checkpoint" in current_url.lower() or "challenge" in current_url.lower():
-                        header_elem = page.locator("h1, h2, #header, .content__header").first
-                        challenge_title = header_elem.inner_text().strip().replace("\n", " ") if header_elem.is_visible(timeout=1000) else "Verification required"
-                        log.warning(f"[yellow]LinkedIn security challenge triggered: '{challenge_title}' at {current_url}[/yellow]")
+                    # Check for 2FA Device Prompt ("Check your LinkedIn app" / Checkpoint / Challenge)
+                    two_factor = page.locator("*:has-text('Check your LinkedIn app'), *:has-text('Open the app and tap Yes'), button:has-text('Resend')").first
+                    if two_factor.is_visible(timeout=2000) or "checkpoint" in current_url.lower() or "challenge" in current_url.lower():
+                        log.warning("[bold yellow]📱 2FA Verification Triggered: LinkedIn sent a notification to your phone! Please open your LinkedIn app and tap 'YES' to confirm sign-in.[/bold yellow]")
+                        log.info("Waiting up to 90 seconds for phone approval...")
+                        for i in range(1, 31):
+                            BrowserManager.human_delay(2.5, 3.5)
+                            curr = page.url.lower()
+                            if any(x in curr for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
+                                log.info("[bold green]✓ Phone approval confirmed! Successfully logged into LinkedIn![/bold green]")
+                                persist_session_cookies(page)
+                                return True
+                            if page.locator(".global-nav__me-photo, nav.global-nav, img.global-nav__me-photo").first.is_visible(timeout=1000):
+                                log.info("[bold green]✓ Phone approval confirmed by navigation element! Successfully logged into LinkedIn![/bold green]")
+                                persist_session_cookies(page)
+                                return True
+                            if i % 5 == 0:
+                                log.info(f"Waiting for phone confirmation... ({90 - i*3}s remaining)")
 
                     if any(x in current_url.lower() for x in ["/feed", "/jobs", "/in/", "/mynetwork"]):
                         log.info("[bold green]✓ LinkedIn autonomous credential login successful![/bold green]")
