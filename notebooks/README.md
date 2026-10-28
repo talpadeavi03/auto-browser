@@ -1,81 +1,60 @@
-# 🤖 Auto-Browser: GitHub ↔ Colab ↔ MLflow Training Loop
+# 🤗 Auto-Browser: Hugging Face Hub Model Training Pipeline
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/talpadeavi03/auto-browser/blob/master/notebooks/train_colab.ipynb)
+This directory contains the production-ready pipeline to fine-tune your specialized AI screening agent (`Qwen-2.5-1.5B-Instruct`) on **Free Google Colab T4 GPU** and push it directly to **Hugging Face Hub** (Public or Private repository).
 
-This pipeline establishes an autonomous, end-to-end MLOps loop across **GitHub**, **Google Colab**, and **MLflow**:
+---
+
+## 🔄 The Hugging Face Loop
 
 ```
 ┌────────────────────────────────┐          ┌────────────────────────────────┐
-│      GitHub Actions / Repo     │          │          Google Colab          │
-│ • Runs 24/7 cloud RPA bot      │          │ • Free T4 GPU Training         │
-│ • Logs Q&A to jobs.db          │─────────>│ • Pulls training_dataset.jsonl │
-│ • Auto-syncs dataset to master │          │ • Fine-tunes Qwen-2.5-1.5B     │
-│ • Receives updated model card  │<─────────│ • Pushes release metadata back │
+│      Auto-Browser Dataset      │          │          Google Colab          │
+│ • data/training_dataset.jsonl  ├─────────>│ • Free T4 GPU Training         │
+│ • 67+ screening Q&A pairs      │          │ • 4-bit LoRA (Qwen-2.5-1.5B)   │
 └────────────────────────────────┘          └───────────────┬────────────────┘
                                                             │
-                                                            ▼ (Logs metrics & artifacts)
+                                                            ▼ (1-Click Push)
                                             ┌────────────────────────────────┐
-                                            │       Remote MLflow Hub        │
-                                            │ • DagsHub Free Hosted MLflow   │
-                                            │ • Model Registry (v1, v2, ...) │
-                                            │ • Loss curves & hyperparameters│
+                                            │      Hugging Face Hub 🤗       │
+                                            │ • Private/Public Model Repo    │
+                                            │ • Free Serverless Inference    │
+                                            │ • Versioning & Git Commits     │
+                                            └───────────────┬────────────────┘
+                                                            │
+                                                            ▼ (Free Cloud Queries)
+                                            ┌────────────────────────────────┐
+                                            │       Auto-Browser Bot         │
+                                            │ • Autonomous form answering    │
                                             └────────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ The Triad Architecture
+## 🚀 How to Train & Deploy in 3 Steps
 
-| Component | Role | Free Cloud Provider |
-| :--- | :--- | :--- |
-| **GitHub** | Code repository, CI/CD Actions, Dataset versioning, Model release docs | GitHub |
-| **Google Colab** | High-performance GPU fine-tuning (LoRA 4-bit NF4) in ~3-5 mins | Google Colab (T4 GPU) |
-| **MLflow** | Remote experiment tracking server, metrics logger, and central Model Registry | DagsHub (Integrated with GitHub) |
+### Step 1: Open the Notebook in Google Colab
+1. Go to **[colab.research.google.com](https://colab.research.google.com)**.
+2. Click **Upload** → Browse to [`notebooks/train_colab.ipynb`](file:///home/sudo69/Projects/auto-browser/notebooks/train_colab.ipynb).
+3. Set Runtime to **T4 GPU** (**Runtime** → **Change runtime type** → **T4 GPU**).
 
----
+### Step 2: Login with Free Hugging Face Write Token
+1. Get your free Hugging Face Write Token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+2. Run Step 2 in the notebook to log in.
 
-## 🚀 Step-by-Step Setup Guide
-
-### 1. One-Time Setup: Connect DagsHub Free MLflow Server (2 minutes)
-DagsHub provides a 100% free remote MLflow server connected to your GitHub repository:
-1. Go to [dagshub.com](https://dagshub.com) and click **Sign in with GitHub**.
-2. Click **Create** → **Migrate Repo** (or Connect existing repository) → Select `talpadeavi03/auto-browser`.
-3. Your free hosted MLflow server is now live at:  
-   `https://dagshub.com/talpadeavi03/auto-browser.mlflow`
-
-### 2. (Optional) Add `GITHUB_TOKEN` in Colab for Automatic Commit
-To let Colab automatically commit the model release card ([`docs/LATEST_MODEL.md`](file:///home/sudo69/Projects/auto-browser/docs/LATEST_MODEL.md)) back to GitHub:
-1. Generate a GitHub Personal Access Token (classic) with `repo` scope at [GitHub Settings -> Tokens](https://github.com/settings/tokens).
-2. In Google Colab, click the **🔑 Secrets** icon on the left panel.
-3. Add a secret named `GITHUB_TOKEN` and paste your token.
-
-### 3. Run Training on Colab
-1. Click **[Open in Colab](https://colab.research.google.com/github/talpadeavi03/auto-browser/blob/master/notebooks/train_colab.ipynb)**.
-2. Select **Runtime** → **Change runtime type** → **T4 GPU** (Free).
-3. Click **Runtime** → **Run all** (`Ctrl + F9`).
-
-### What Happens Automatically:
-1. Colab pulls `data/training_dataset.jsonl` from GitHub.
-2. Connects to your DagsHub remote MLflow server.
-3. Fine-tunes `Qwen/Qwen2.5-1.5B-Instruct` in 4-bit with LoRA.
-4. Streams loss curves live to MLflow dashboard.
-5. Saves and registers the model in the **MLflow Model Registry** under `AutoBrowser-DevOps-Agent`.
-6. Updates [`docs/LATEST_MODEL.md`](file:///home/sudo69/Projects/auto-browser/docs/LATEST_MODEL.md) and pushes the commit back to GitHub master branch!
+### Step 3: Run All Cells
+* The model fine-tunes in **~3 minutes**.
+* Step 8 auto-pushes the trained LoRA adapter to your Hugging Face account:
+  `https://huggingface.co/<your-username>/auto-browser-devops-agent`
 
 ---
 
-## ⚡ How Auto-Browser Uses the Trained Model
+## ⚡ Connecting to Auto-Browser
 
-Once registered in MLflow, Auto-Browser can load or download the model using any of the following:
+Once pushed to Hugging Face, add your repo to [.env](file:///home/sudo69/Projects/auto-browser/.env):
 
-### Method 1: Load directly via MLflow
-```python
-import mlflow.transformers
-model = mlflow.transformers.load_model("models:/AutoBrowser-DevOps-Agent/latest")
+```env
+HF_MODEL_ID=your-username/auto-browser-devops-agent
+HF_TOKEN=hf_your_write_token
 ```
 
-### Method 2: Download Artifacts into Project
-```bash
-python -c "import mlflow; mlflow.artifacts.download_artifacts('models:/AutoBrowser-DevOps-Agent/latest', dst_path='data/trained_model')"
-```
-Auto-Browser will automatically detect `data/trained_model/` and prioritize it over Gemini and heuristics.
+Auto-Browser will automatically query your fine-tuned model via Hugging Face's free Serverless Inference API for all job applications!
