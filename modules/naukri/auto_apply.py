@@ -196,22 +196,37 @@ def handle_naukri_screening_modal(page: Page) -> bool:
 
 def run_naukri_auto_apply(page: Page, limit: Optional[int] = None) -> int:
     """Scrapes jobs matching user configuration and auto-applies up to the specified limit."""
+    import time
     max_apps = limit or settings.naukri.max_applications_per_run
-    log.info(f"[bold cyan]Starting Naukri Auto-Apply (Target: up to {max_apps} applications)...[/bold cyan]")
+    max_inspected = max(max_apps * 3, 12)
+    max_runtime_sec = 300 # 5 minutes hard safety timeout
+    start_time = time.time()
+
+    log.info(f"[bold cyan]Starting Naukri Auto-Apply (Target: up to {max_apps} applications, max inspected: {max_inspected})...[/bold cyan]")
 
     applied_count = 0
+    inspected_count = 0
     from modules.naukri.scraper import scrape_naukri_jobs
 
+    stop_search = False
     for kw in settings.naukri.search_keywords:
+        if stop_search:
+            break
         for loc in settings.naukri.locations:
-            if applied_count >= max_apps:
+            if stop_search:
+                break
+
+            if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
+                stop_search = True
                 break
 
             jobs = scrape_naukri_jobs(page, keyword=kw, location=loc, max_pages=1)
             for j in jobs:
-                if applied_count >= max_apps:
+                if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
+                    stop_search = True
                     break
 
+                inspected_count += 1
                 res = apply_to_naukri_job(
                     page=page,
                     job_url=j["job_url"],
@@ -221,7 +236,7 @@ def run_naukri_auto_apply(page: Page, limit: Optional[int] = None) -> int:
                 )
                 if res in ("APPLIED", "APPLIED_PENDING_CONFIRMATION"):
                     applied_count += 1
-                BrowserManager.human_delay(2.0, 4.0)
+                BrowserManager.human_delay(2.0, 3.5)
 
-    log.info(f"[bold green]✓ Naukri Auto-Apply completed. Total applied in this run: {applied_count}[/bold green]")
+    log.info(f"[bold green]✓ Naukri Auto-Apply completed. Total applied in this run: {applied_count} (Inspected: {inspected_count})[/bold green]")
     return applied_count

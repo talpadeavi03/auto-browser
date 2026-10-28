@@ -452,22 +452,36 @@ def dismiss_modal(page: Page, modal: Optional[Locator] = None):
 def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
     """Scrapes matching LinkedIn jobs and applies via Easy Apply up to the limit."""
     max_apps = limit or settings.linkedin.max_applications_per_run
-    log.info(f"[bold cyan]Starting LinkedIn Easy Apply (Target: up to {max_apps} applications)...[/bold cyan]")
+    max_inspected = max(max_apps * 3, 12)
+    max_runtime_sec = 300 # 5 minutes hard safety timeout
+    start_time = time.time()
+
+    log.info(f"[bold cyan]Starting LinkedIn Easy Apply (Target: up to {max_apps} applications, max inspected: {max_inspected})...[/bold cyan]")
 
     applied_count = 0
+    inspected_count = 0
     from modules.linkedin.scraper import scrape_linkedin_jobs
 
+    stop_search = False
     for kw in settings.linkedin.search_keywords:
+        if stop_search:
+            break
         for loc in settings.linkedin.locations:
-            if applied_count >= max_apps:
+            if stop_search:
                 break
 
-            BrowserManager.human_delay(2.5, 4.5)
-            jobs = scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=15)
+            if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
+                stop_search = True
+                break
+
+            BrowserManager.human_delay(2.0, 3.5)
+            jobs = scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=max_apps * 2)
             for j in jobs:
-                if applied_count >= max_apps:
+                if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
+                    stop_search = True
                     break
 
+                inspected_count += 1
                 res = apply_to_linkedin_easy_apply(
                     page=page,
                     job_url=j["job_url"],
@@ -477,9 +491,9 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
                 )
                 if res == "APPLIED":
                     applied_count += 1
-                BrowserManager.human_delay(3.0, 6.0)
+                BrowserManager.human_delay(2.5, 4.0)
 
-    log.info(f"[bold green]✓ LinkedIn Easy Apply run complete. Total applied: {applied_count}[/bold green]")
+    log.info(f"[bold green]✓ LinkedIn Easy Apply run complete. Total applied: {applied_count} (Inspected: {inspected_count})[/bold green]")
     try:
         db.record_profile_refresh("linkedin", f"Cloud Easy Apply session active ({applied_count} applied)")
     except Exception as ref_err:
