@@ -1,7 +1,15 @@
 import os
+import json
+from pathlib import Path
 from typing import List, Optional
 from config.config import settings
 from core.logger import log
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
 
 try:
     from google import genai
@@ -12,9 +20,12 @@ except ImportError:
 
 class AIAssistant:
     """
-    Intelligent AI Form Assistant powered by Google Gemini.
-    Answers non-standard screening questions on LinkedIn and Naukri
-    accurately based on the candidate's actual profile and resume.
+    Intelligent AI Form Assistant.
+    Supports:
+    1. Fine-Tuned Domain Model (Hugging Face Inference API / Local LoRA / Ollama)
+    2. Google Gemini (gemini-2.5-flash)
+    3. Fast Deterministic Heuristics
+    Automatically saves screening interactions to jobs.db for continuous training.
     """
     def __init__(self, api_key: Optional[str] = None):
         raw_key = api_key or os.getenv("GEMINI_API_KEY")
@@ -23,6 +34,21 @@ class AIAssistant:
         self.api_key = raw_key
         self.client = None
         self._quota_exhausted = False
+
+        # Fine-Tuned Model Configuration (Trained on Colab)
+        self.hf_model_id = os.getenv("HF_MODEL_ID")
+        self.hf_token = os.getenv("HF_TOKEN")
+        self.ollama_model = os.getenv("OLLAMA_MODEL")
+        self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.local_model_path = os.getenv("LOCAL_MODEL_PATH", "data/trained_model")
+
+        if self.hf_model_id:
+            log.info(f"[bold green]✓ Fine-Tuned Cloud Model configured:[/bold green] {self.hf_model_id}")
+        elif Path(self.local_model_path).exists():
+            log.info(f"[bold green]✓ Local Fine-Tuned Model found at:[/bold green] {self.local_model_path}")
+        elif self.ollama_model:
+            log.info(f"[bold green]✓ Ollama Model configured:[/bold green] {self.ollama_model}")
+
         if self.api_key and GENAI_AVAILABLE:
             try:
                 self.client = genai.Client(api_key=self.api_key)
@@ -31,8 +57,90 @@ class AIAssistant:
                 log.warning(f"Could not initialize Gemini Client: {e}")
 
     @property
+    def has_fine_tuned_model(self) -> bool:
+        """Returns True if a fine-tuned model (HF, Ollama, or Local) is configured."""
+        return bool(self.hf_model_id or self.ollama_model or Path(self.local_model_path).exists())
+
+    @property
     def is_active(self) -> bool:
         return self.client is not None and not self._quota_exhausted
+
+    def _query_fine_tuned_model(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        job_context: str = ""
+    ) -> Optional[str]:
+        """Queries fine-tuned model via Hugging Face Serverless API or Ollama."""
+        if not REQUESTS_AVAILABLE:
+            return None
+
+        opts_str = f"\nAvailable Options: {', '.join(options)}" if options else ""
+        system_instruction = (
+            "You are an expert AI autonomous job application agent for candidate Avinash Talpade, "
+            "a DevOps and Cloud Engineer with 3.6 years experience. Answer recruiter screening questions "
+            "accurately, professionally, and truthfully according to the candidate profile."
+        )
+        user_prompt = f"Recruiter Question: '{question}'\nField Type: {field_type}{opts_str}"
+
+        # 1. Try Hugging Face Serverless Inference API (Free)
+        if self.hf_model_id:
+            try:
+                headers = {}
+                if self.hf_token:
+                    headers["Authorization"] = f"Bearer {self.hf_token}"
+                
+                # Format into ChatML prompt used during fine-tuning
+                formatted_prompt = (
+                    f"<|im_start|>system\n{system_instruction}<|im_end|>\n"
+                    f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+                    f"<|im_start|>assistant\n"
+                )
+                
+                api_url = f"https://api-inference.huggingface.co/models/{self.hf_model_id}"
+                payload = {
+                    "inputs": formatted_prompt,
+                    "parameters": {
+                        "max_new_tokens": 60,
+                        "temperature": 0.1,
+                        "return_full_text": False
+                    }
+                }
+                res = requests.post(api_url, headers=headers, json=payload, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        gen_text = data[0].get("generated_text", "").strip()
+                        if "<|im_end|>" in gen_text:
+                            gen_text = gen_text.split("<|im_end|>")[0].strip()
+                        if gen_text:
+                            return gen_text
+            except Exception as e:
+                log.debug(f"HF Inference API call failed: {e}")
+
+        # 2. Try Local Ollama
+        if self.ollama_model:
+            try:
+                resp = requests.post(
+                    f"{self.ollama_host}/api/generate",
+                    json={
+                        "model": self.ollama_model,
+                        "system": system_instruction,
+                        "prompt": user_prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.1, "num_predict": 60}
+                    },
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    ans = resp.json().get("response", "").strip()
+                    if ans:
+                        return ans
+            except Exception as e:
+                log.debug(f"Ollama call failed: {e}")
+
+        return None
 
     def get_candidate_context(self) -> str:
         """Constructs rich candidate background for prompt context."""
@@ -169,6 +277,24 @@ Candidate Background:
         if "email" in q:
             return settings.profile.email or "talpadeavi0303@gmail.com"
 
+        if "certif" in q or "license" in q:
+            return settings.profile.certifications or "AWS Certified Solutions Architect - Associate"
+
+        if "degree" in q or "qualification" in q or "education" in q:
+            return settings.profile.degree or "Bachelor of Engineering"
+
+        if "college" in q or "university" in q or "institute" in q:
+            return settings.profile.college or settings.profile.university
+
+        if "company" in q or "employer" in q:
+            return settings.profile.current_company or "Cloud & DevOps Solutions"
+
+        if "designation" in q or "title" in q or "role" in q:
+            return settings.profile.current_designation or "DevOps Engineer"
+
+        if "skill" in q:
+            return settings.profile.skills
+
         if "commute" in q or "relocate" in q or "shift" in q or "travel" in q or "comfortable" in q:
             return "Yes"
 
@@ -188,25 +314,37 @@ Candidate Background:
         job_context: str = ""
     ) -> str:
         """
-        Uses Gemini to generate the optimal, truthful answer to a recruiter's screening question.
-        Falls back to local heuristic answering on 429 quota exhaustion or API failure.
+        Generates the optimal, truthful answer to a recruiter's screening question.
+        Order of priority:
+        1. Specialized Fine-Tuned Model (Hugging Face / Ollama / Local)
+        2. Gemini 2.5 Flash API
+        3. Deterministic Profile Heuristics
+        Automatically logs question & answer into jobs.db for continuous learning.
         """
-        if not self.is_active:
-            ans = self._heuristic_answer(question, field_type, options)
-            log.info(f"[cyan]⚡ Heuristic answered:[/cyan] '{question}' -> [bold green]'{ans}'[/bold green]")
-            return ans
+        final_answer = ""
+        source = "heuristic"
 
-        options_str = f"\nAvailable options to pick from: {options}" if options else ""
-        system_instruction = (
-            "You are an expert career agent assisting candidate Avinash Talpade in answering "
-            "job application screening questions on LinkedIn and Naukri. "
-            "Always be truthful to the candidate profile, confident, and professional. "
-            "If the question asks for a number (years, days, salary), return ONLY the numeric value. "
-            "If options are provided, return the EXACT text of the single best matching option. "
-            "If open-ended text is required, write a concise, professional answer in 1-2 sentences."
-        )
+        # 1. Try Fine-Tuned Model (Qwen-2.5-1.5B trained on Colab)
+        if self.has_fine_tuned_model:
+            ft_ans = self._query_fine_tuned_model(question, field_type, options, job_context)
+            if ft_ans:
+                final_answer = ft_ans
+                source = "fine_tuned"
+                log.info(f"[cyan]🎯 Fine-Tuned Model answered:[/cyan] '{question}' -> [bold green]'{final_answer}'[/bold green]")
 
-        prompt = f"""
+        # 2. Try Google Gemini API
+        if not final_answer and self.is_active:
+            options_str = f"\nAvailable options to pick from: {options}" if options else ""
+            system_instruction = (
+                "You are an expert career agent assisting candidate Avinash Talpade in answering "
+                "job application screening questions on LinkedIn and Naukri. "
+                "Always be truthful to the candidate profile, confident, and professional. "
+                "If the question asks for a number (years, days, salary), return ONLY the numeric value. "
+                "If options are provided, return the EXACT text of the single best matching option. "
+                "If open-ended text is required, write a concise, professional answer in 1-2 sentences."
+            )
+
+            prompt = f"""
 {self.get_candidate_context()}
 
 Recruiter Question: "{question}"
@@ -215,34 +353,56 @@ Optional Job Context: {job_context[:500]}
 
 Provide ONLY the final answer to fill into the input box:
 """
-        try:
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.2,
-                    max_output_tokens=150,
+            try:
+                response = self.client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.2,
+                        max_output_tokens=150,
+                    )
                 )
+                answer = (response.text or "").strip()
+                if (answer.startswith('"') and answer.endswith('"')) or (answer.startswith("'") and answer.endswith("'")):
+                    answer = answer[1:-1].strip()
+
+                if answer:
+                    final_answer = answer
+                    source = "gemini"
+                    log.info(f"[cyan]🤖 Gemini AI answered:[/cyan] '{question}' -> [bold green]'{final_answer}'[/bold green]")
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                    log.warning("Gemini API Free-Tier daily quota exceeded (429). Activating instant local heuristic answering engine.")
+                    self._quota_exhausted = True
+                else:
+                    log.warning(f"Gemini API call failed: {e}")
+
+        # 3. Fallback to Heuristic Engine
+        if not final_answer:
+            final_answer = self._heuristic_answer(question, field_type, options)
+            source = "heuristic"
+            log.info(f"[cyan]⚡ Heuristic answered:[/cyan] '{question}' -> [bold green]'{final_answer}'[/bold green]")
+
+        # 4. Record to Database for Autonomous Continuous Dataset Expansion
+        try:
+            from core.storage import db
+            db.record_interaction(
+                platform="screening",
+                job_title="Screening Question",
+                company="Recruiter",
+                field_type=field_type,
+                question=question,
+                options=options,
+                answer=final_answer,
+                source=source,
+                context=job_context
             )
-            answer = (response.text or "").strip()
-            # Clean quotes if any
-            if (answer.startswith('"') and answer.endswith('"')) or (answer.startswith("'") and answer.endswith("'")):
-                answer = answer[1:-1].strip()
+        except Exception:
+            pass
 
-            log.info(f"[cyan]🤖 Gemini AI answered:[/cyan] '{question}' -> [bold green]'{answer}'[/bold green]")
-            return answer
-        except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-                log.warning("Gemini API Free-Tier daily quota exceeded (429 RESOURCE_EXHAUSTED). Activating instant local heuristic answering engine for remainder of session.")
-                self._quota_exhausted = True
-            else:
-                log.warning(f"Gemini API call failed: {e}")
-
-            ans = self._heuristic_answer(question, field_type, options)
-            log.info(f"[cyan]⚡ Heuristic fallback answered:[/cyan] '{question}' -> [bold green]'{ans}'[/bold green]")
-            return ans
+        return final_answer
 
     def solve_captcha_image(self, b64_png: str) -> str:
         """
