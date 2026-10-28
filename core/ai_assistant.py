@@ -231,6 +231,18 @@ Candidate Background:
             return clean_opts[0] if clean_opts else "Yes"
 
         # Case 2: Text or Number inputs
+        # Check for open-ended summary questions first
+        if any(w in q for w in ["summarize", "describe", "overview", "explain", "detail"]):
+            if "kubernetes" in q or "k8s" in q or "eks" in q:
+                return "Experienced in architecting and managing production Kubernetes and AWS EKS clusters with Helm, ingress controllers, RBAC, and auto-scaling."
+            if "ci/cd" in q or "pipeline" in q:
+                return "Built automated CI/CD pipelines using GitHub Actions and GitLab CI for linting, security scanning, container builds, and zero-downtime deployment."
+            if "terraform" in q or "iac" in q:
+                return "Authored modular, reusable Terraform code for provisioning VPCs, EKS clusters, IAM roles, and RDS databases."
+            if "cloud" in q or "aws" in q:
+                return "Extensive experience designing, securing, and automating scalable cloud infrastructure on AWS using Terraform, Docker, and Kubernetes."
+            return "Passionate DevOps Engineer with 3.6 years of hands-on experience in AWS, Kubernetes, Terraform, Docker, and CI/CD automation."
+
         if "notice" in q or "how soon" in q or "joining" in q:
             return "0" if ("day" in q or field_type == "number") else "Immediate Joiner"
 
