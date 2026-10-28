@@ -217,6 +217,10 @@ class BrowserManager:
         if cookies_to_load:
             try:
                 cleaned_cookies = clean_and_normalize_cookies(cookies_to_load)
+                try:
+                    self.context.clear_cookies()
+                except Exception:
+                    pass
                 self.context.add_cookies(cleaned_cookies)
                 log.info(f"[bold green]✓ Restored {len(cleaned_cookies)} authenticated session cookies (domains normalized)![/bold green]")
             except Exception as e:
