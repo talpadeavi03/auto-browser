@@ -88,6 +88,8 @@ jobs:
         env:
           PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
           LINKEDIN_LI_AT: ${{ secrets.LINKEDIN_LI_AT }}
           LINKEDIN_USERNAME: ${{ secrets.LINKEDIN_USERNAME }}
@@ -98,6 +100,9 @@ jobs:
           import os
           print('--- Cloud Authentication Diagnostics ---')
           print('✓ AUTH_STORAGE_STATE secret set:', bool(os.getenv('AUTH_STORAGE_STATE', '').strip()))
+          print('✓ HF_MODEL_ID secret set:', bool(os.getenv('HF_MODEL_ID', '').strip()))
+          print('✓ HF_TOKEN secret set:', bool(os.getenv('HF_TOKEN', '').strip()))
+          print('✓ GEMINI_API_KEY secret set:', bool(os.getenv('GEMINI_API_KEY', '').strip()))
           print('✓ LINKEDIN_LI_AT dedicated secret set:', bool(os.getenv('LINKEDIN_LI_AT', '').strip()))
           print('✓ LINKEDIN_USERNAME credential set:', bool(os.getenv('LINKEDIN_USERNAME', '').strip()))
           print('✓ LINKEDIN_PASSWORD credential set:', bool(os.getenv('LINKEDIN_PASSWORD', '').strip()))
@@ -109,6 +114,8 @@ jobs:
         env:
           PYTHONPATH: .
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
           LINKEDIN_LI_AT: ${{ secrets.LINKEDIN_LI_AT }}
           LINKEDIN_USERNAME: ${{ secrets.LINKEDIN_USERNAME }}
