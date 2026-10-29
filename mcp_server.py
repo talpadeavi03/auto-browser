@@ -426,6 +426,22 @@ def apply_external_company_job(
         }
 
 @mcp.tool()
+def score_and_rank_jobs(
+    jobs: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Ranks a list of job postings using TechWolf/JobBERT-v3 resume embeddings and
+    BAAI/bge-reranker-v2-m3 cross-encoder. Returns them sorted by relevance score.
+    """
+    from core.ai_matcher import ai_matcher
+    ranked = ai_matcher.filter_and_rank_jobs(jobs)
+    return {
+        "total_evaluated": len(jobs),
+        "qualified_count": len(ranked),
+        "ranked_jobs": ranked
+    }
+
+@mcp.tool()
 def export_ml_training_dataset() -> Dict[str, Any]:
     """
     Exports all collected screening interactions and application answers

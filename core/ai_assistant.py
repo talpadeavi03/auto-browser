@@ -77,17 +77,6 @@ class AIAssistant:
     def is_active(self) -> bool:
         return self.client is not None and not self._quota_exhausted
 
-    def _query_fine_tuned_model(
-        self,
-        question: str,
-        field_type: str = "text",
-        options: Optional[List[str]] = None,
-        job_context: str = ""
-    ) -> Optional[str]:
-        """Queries fine-tuned model via Hugging Face Serverless API or Ollama."""
-        if not REQUESTS_AVAILABLE:
-            return None
-
     def _query_deepseek(
         self,
         question: str,
@@ -139,6 +128,17 @@ class AIAssistant:
             log.debug(f"DeepSeek API call failed: {e}")
 
         return None
+
+    def _query_fine_tuned_model(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        job_context: str = ""
+    ) -> Optional[str]:
+        """Queries fine-tuned model via Hugging Face Serverless API or Ollama."""
+        if not REQUESTS_AVAILABLE:
+            return None
 
         opts_str = f"\nAvailable Options: {', '.join(options)}" if options else ""
         system_instruction = (
@@ -203,58 +203,6 @@ class AIAssistant:
                         return ans
             except Exception as e:
                 log.debug(f"Ollama call failed: {e}")
-
-        return None
-
-    def _query_deepseek(
-        self,
-        question: str,
-        field_type: str = "text",
-        options: Optional[List[str]] = None,
-        job_context: str = ""
-    ) -> Optional[str]:
-        """Queries DeepSeek-V4.1-Flash for high-speed screening question reasoning."""
-        if not REQUESTS_AVAILABLE or not self.deepseek_api_key:
-            return None
-
-        opts_str = f"\nAvailable options to pick from: {options}" if options else ""
-        system_msg = (
-            "You are an expert autonomous job application agent for candidate Avinash Talpade, "
-            "a DevOps and Cloud Engineer with 3.6 years experience. "
-            "Always be truthful to candidate profile. If asked for a number, return ONLY digits. "
-            "If options are provided, select EXACT option text. Keep open answers concise (1-2 sentences)."
-            f"\n{self.get_candidate_context()}"
-        )
-        user_msg = f"Recruiter Question: '{question}'\nField Type: {field_type}{opts_str}\nJob Context: {job_context[:300]}\nProvide ONLY the direct answer:"
-
-        headers = {
-            "Authorization": f"Bearer {self.deepseek_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": self.deepseek_model,
-            "messages": [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg}
-            ],
-            "temperature": 0.1,
-            "max_tokens": 100
-        }
-
-        try:
-            api_url = f"{self.deepseek_base_url.rstrip('/')}/chat/completions"
-            resp = requests.post(api_url, headers=headers, json=payload, timeout=8)
-            if resp.status_code == 200:
-                data = resp.json()
-                choices = data.get("choices", [])
-                if choices:
-                    content = choices[0].get("message", {}).get("content", "").strip()
-                    if content:
-                        if (content.startswith('"') and content.endswith('"')) or (content.startswith("'") and content.endswith("'")):
-                            content = content[1:-1].strip()
-                        return content
-        except Exception as e:
-            log.debug(f"DeepSeek API call failed: {e}")
 
         return None
 

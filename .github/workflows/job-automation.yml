@@ -91,6 +91,7 @@ jobs:
       - name: Test MCP Server & CLI Engine
         env:
           PYTHONPATH: .
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -104,6 +105,7 @@ jobs:
           import os
           print('--- Cloud Authentication Diagnostics ---')
           print('✓ AUTH_STORAGE_STATE secret set:', bool(os.getenv('AUTH_STORAGE_STATE', '').strip()))
+          print('✓ DEEPSEEK_API_KEY secret set:', bool(os.getenv('DEEPSEEK_API_KEY', '').strip()))
           print('✓ HF_MODEL_ID secret set:', bool(os.getenv('HF_MODEL_ID', '').strip()))
           print('✓ HF_TOKEN secret set:', bool(os.getenv('HF_TOKEN', '').strip()))
           print('✓ GEMINI_API_KEY secret set:', bool(os.getenv('GEMINI_API_KEY', '').strip()))
@@ -117,6 +119,7 @@ jobs:
       - name: Execute Cloud Automation Sequence
         env:
           PYTHONPATH: .
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -180,6 +183,7 @@ jobs:
             data/exports/*.xlsx
             data/exports/*.csv
             data/exports/*.png
+            data/exports/*.html
             data/jobs.db
             data/training_dataset.jsonl
           retention-days: 14

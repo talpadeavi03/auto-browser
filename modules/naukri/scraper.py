@@ -100,6 +100,20 @@ def scrape_naukri_jobs(page: Page, keyword: str, location: str, max_pages: int =
                         parts = job_url.split("job-listings-")[-1].split("?")[0]
                         job_id = parts
 
+                    # Job snippet & Skill tags
+                    snippet = ""
+                    try:
+                        desc_elem = card.locator("span.job-desc, .job-desc, .job-description").first
+                        if desc_elem.is_visible():
+                            snippet = desc_elem.inner_text().strip()
+                        tags_elems = card.locator("ul.tags-gt li, .tags-gt li, .tag-li").all()
+                        if tags_elems:
+                            tag_texts = [t.inner_text().strip() for t in tags_elems if t.inner_text().strip()]
+                            if tag_texts:
+                                snippet = f"{snippet} | Skills: {', '.join(tag_texts[:5])}" if snippet else f"Skills: {', '.join(tag_texts[:5])}"
+                    except Exception:
+                        pass
+
                     job_data = {
                         "platform": "naukri",
                         "job_id": job_id,
@@ -109,6 +123,7 @@ def scrape_naukri_jobs(page: Page, keyword: str, location: str, max_pages: int =
                         "experience": exp,
                         "salary": sal,
                         "job_url": job_url,
+                        "snippet": snippet,
                     }
 
                     # Store in SQLite
@@ -120,7 +135,8 @@ def scrape_naukri_jobs(page: Page, keyword: str, location: str, max_pages: int =
                         location=loc,
                         experience=exp,
                         salary=sal,
-                        job_url=job_url
+                        job_url=job_url,
+                        snippet=snippet
                     )
 
                     scraped_jobs.append(job_data)

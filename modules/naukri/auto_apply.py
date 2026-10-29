@@ -5,9 +5,10 @@ from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
 from core.ai_assistant import ai_assistant
+from core.ai_matcher import ai_matcher
 from modules.external.universal_apply import UniversalATSApplier
 
-def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
+def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, job_id: str = "", match_score: float = 0.0) -> str:
     """
     Attempts to apply to a single Naukri job posting.
     Returns status string: 'APPLIED', 'ALREADY_APPLIED', 'COMPANY_SITE', 'SKIPPED_QUESTIONNAIRE', or 'FAILED'.
@@ -17,7 +18,8 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
         return "ALREADY_APPLIED"
 
     try:
-        log.info(f"[cyan]Opening Naukri job: {job_title} ({company})...[/cyan]")
+        score_tag = f" [AI Match: {match_score*100:.1f}%]" if match_score > 0 else ""
+        log.info(f"[cyan]Opening Naukri job: {job_title} ({company}){score_tag}...[/cyan]")
         page.goto(job_url, timeout=30000, wait_until="domcontentloaded")
         BrowserManager.human_delay(2.0, 3.5)
 
@@ -130,7 +132,8 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
             company=company,
             job_url=job_url,
             status=status,
-            notes="Direct 1-Click apply completed"
+            notes=f"Direct 1-Click apply completed | AI Match: {match_score*100:.1f}%" if match_score > 0 else "Direct 1-Click apply completed",
+            match_score=match_score
         )
         return status
 
@@ -221,7 +224,8 @@ def run_naukri_auto_apply(page: Page, limit: Optional[int] = None) -> int:
                 break
 
             jobs = scrape_naukri_jobs(page, keyword=kw, location=loc, max_pages=1)
-            for j in jobs:
+            ranked_jobs = ai_matcher.filter_and_rank_jobs(jobs)
+            for j in ranked_jobs:
                 if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
                     stop_search = True
                     break
@@ -232,7 +236,8 @@ def run_naukri_auto_apply(page: Page, limit: Optional[int] = None) -> int:
                     job_url=j["job_url"],
                     job_title=j["job_title"],
                     company=j["company"],
-                    job_id=j.get("job_id", "")
+                    job_id=j.get("job_id", ""),
+                    match_score=j.get("match_score", 0.0)
                 )
                 if res in ("APPLIED", "APPLIED_PENDING_CONFIRMATION"):
                     applied_count += 1

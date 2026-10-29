@@ -49,10 +49,14 @@ def print_stats_table():
     console.print(refresh_table)
 
 def export_reports(target_dir: str = None) -> dict:
-    """Exports SQLite job database to CSV and Excel."""
+    """Exports SQLite job database to CSV, Excel, Visual Analytics Chart PNG, and Executive HTML Report."""
     out_dir = Path(target_dir or settings.reporting.export_dir)
     log.info(f"Exporting application reports to {out_dir}...")
     files = db.export_all(out_dir)
-    log.info(f"[green]✓ CSV Exported: {files['csv']}[/green]")
-    log.info(f"[green]✓ Excel Exported: {files['excel']}[/green]")
+    log.info(f"[green]✓ CSV Exported: {files.get('csv')}[/green]")
+    log.info(f"[green]✓ Excel Exported: {files.get('excel')}[/green]")
+    if files.get("chart"):
+        log.info(f"[green]✓ Visual Analytics Chart: {files.get('chart')}[/green]")
+    if files.get("html"):
+        log.info(f"[green]✓ Executive HTML Report: {files.get('html')}[/green]")
     return files

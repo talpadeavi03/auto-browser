@@ -18,7 +18,7 @@ class UniversalATSApplier:
     """
 
     @classmethod
-    def apply(cls, page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
+    def apply(cls, page: Page, job_url: str, job_title: str, company: str, job_id: str = "", match_score: float = 0.0) -> str:
         """
         Navigates to an external job application page, fills all fields,
         attaches candidate resume, answers screening questions with AI/MCP heuristics, and submits.
@@ -157,7 +157,8 @@ class UniversalATSApplier:
                 company=company,
                 job_url=job_url,
                 status=status,
-                notes=f"Universal ATS Applier automated submission (confirmed={confirmed})"
+                notes=f"Universal ATS Applier automated submission (confirmed={confirmed}) | AI Match: {match_score*100:.1f}%" if match_score > 0 else f"Universal ATS Applier automated submission (confirmed={confirmed})",
+                match_score=match_score
             )
             return status
 

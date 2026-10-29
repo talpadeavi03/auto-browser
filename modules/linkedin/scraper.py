@@ -250,6 +250,17 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                 loc_elem = card.locator(".job-search-card__location, .job-card-container__metadata-item, .artdeco-entity-lockup__caption").first
                 loc = loc_elem.inner_text().strip() if loc_elem.count() > 0 else location
 
+                # Snippet & Insight tags
+                snippet = ""
+                try:
+                    insight_items = card.locator(".job-card-list__insight, .job-card-container__job-insight, ul.job-card-container__metadata-wrapper li, .base-search-card__metadata").all()
+                    if insight_items:
+                        texts = [i.inner_text().strip() for i in insight_items if i.inner_text().strip()]
+                        if texts:
+                            snippet = " | ".join(texts[:3])
+                except Exception:
+                    pass
+
                 job_data = {
                     "platform": "linkedin",
                     "job_id": job_id,
@@ -257,6 +268,7 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                     "company": company,
                     "location": loc,
                     "job_url": clean_url,
+                    "snippet": snippet,
                 }
 
                 db.record_scraped_job(
@@ -265,7 +277,8 @@ def scrape_linkedin_jobs(page: Page, keyword: str, location: str, max_jobs: int 
                     job_title=job_title,
                     company=company,
                     location=loc,
-                    job_url=clean_url
+                    job_url=clean_url,
+                    snippet=snippet
                 )
 
                 scraped.append(job_data)

@@ -180,6 +180,33 @@ def linkedin_apply(limit: int, headless: bool):
         run_linkedin_easy_apply(page, limit=limit)
         print_stats_table()
 
+@cli.command("apply")
+@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform to apply on")
+@click.option("--limit", default=5, type=int, help="Max jobs to apply to per platform")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def apply_cmd(platform: str, limit: int, headless: bool):
+    """Auto-apply to jobs on LinkedIn, Naukri, or both using AI Semantic Matching."""
+    console.print(Panel.fit(f"[bold cyan]Starting AI Auto-Apply on {platform.upper()} (Limit: {limit})[/bold cyan]"))
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+
+        if platform in ("all", "linkedin"):
+            console.print("\n[bold cyan]Targeting LinkedIn Easy Apply...[/bold cyan]")
+            if is_linkedin_logged_in(page, navigate=True):
+                run_linkedin_easy_apply(page, limit=limit)
+            else:
+                console.print("[bold yellow]LinkedIn session inactive. Skipping LinkedIn apply.[/bold yellow]")
+
+        if platform in ("all", "naukri"):
+            console.print("\n[bold cyan]Targeting Naukri Auto-Apply...[/bold cyan]")
+            if is_naukri_logged_in(page, navigate=True):
+                run_naukri_auto_apply(page, limit=limit)
+            else:
+                console.print("[bold yellow]Naukri session inactive. Skipping Naukri apply.[/bold yellow]")
+
+    print_stats_table()
+    export_reports()
+
 @cli.command("external-apply")
 @click.option("--url", required=True, help="Direct URL to external job application page or ATS")
 @click.option("--company", default="Company", help="Company name")
@@ -197,19 +224,27 @@ def external_apply(url: str, company: str, title: str, headless: bool):
 @click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
 def scrape(platform: str, headless: bool):
-    """Scrape and track matching jobs without applying."""
+    """Scrape and track matching jobs with AI semantic match ranking."""
+    all_scraped = []
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
 
         if platform in ("all", "naukri"):
             for kw in settings.naukri.search_keywords:
                 for loc in settings.naukri.locations:
-                    scrape_naukri_jobs(page, keyword=kw, location=loc, max_pages=2)
+                    all_scraped.extend(scrape_naukri_jobs(page, keyword=kw, location=loc, max_pages=1))
 
         if platform in ("all", "linkedin"):
             for kw in settings.linkedin.search_keywords:
                 for loc in settings.linkedin.locations:
-                    scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=20)
+                    all_scraped.extend(scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=15))
+
+    if all_scraped:
+        from core.ai_matcher import ai_matcher
+        ranked = ai_matcher.filter_and_rank_jobs(all_scraped)
+        console.print(f"\n[bold green]✓ AI Reranker evaluated {len(all_scraped)} listings ({len(ranked)} qualified ≥ {settings.models.min_match_score*100:.0f}%)[/bold green]")
+        for i, r in enumerate(ranked[:5], 1):
+            console.print(f"  {i}. [cyan]{r.get('job_title')}[/cyan] at [magenta]{r.get('company')}[/magenta] ([bold green]{r.get('match_percentage')}[/bold green])")
 
     print_stats_table()
     export_reports()

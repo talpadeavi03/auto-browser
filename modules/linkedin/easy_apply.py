@@ -8,9 +8,10 @@ from core.browser import BrowserManager
 from core.logger import log
 from core.storage import db
 from core.ai_assistant import ai_assistant
+from core.ai_matcher import ai_matcher
 from modules.external.universal_apply import UniversalATSApplier
 
-def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, company: str, job_id: str = "") -> str:
+def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, company: str, job_id: str = "", match_score: float = 0.0) -> str:
     """
     Automates the LinkedIn 'Easy Apply' multi-step flow for a job listing.
     Returns: 'APPLIED', 'ALREADY_APPLIED', 'NO_EASY_APPLY', 'SKIPPED_COMPLEX', or 'FAILED'.
@@ -20,7 +21,8 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
         return "ALREADY_APPLIED"
 
     try:
-        log.info(f"[cyan]Navigating to LinkedIn job: {job_title} ({company})...[/cyan]")
+        score_tag = f" [AI Match: {match_score*100:.1f}%]" if match_score > 0 else ""
+        log.info(f"[cyan]Navigating to LinkedIn job: {job_title} ({company}){score_tag}...[/cyan]")
         page.goto(job_url, timeout=30000, wait_until="domcontentloaded")
         BrowserManager.human_delay(2.5, 4.0)
 
@@ -181,7 +183,8 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                     company=company,
                     job_url=job_url,
                     status="APPLIED",
-                    notes="Completed Easy Apply"
+                    notes=f"Easy Apply completed | AI Match: {match_score*100:.1f}%" if match_score > 0 else "Completed Easy Apply",
+                    match_score=match_score
                 )
                 return "APPLIED"
 
@@ -476,7 +479,8 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
 
             BrowserManager.human_delay(2.0, 3.5)
             jobs = scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=max_apps * 2)
-            for j in jobs:
+            ranked_jobs = ai_matcher.filter_and_rank_jobs(jobs)
+            for j in ranked_jobs:
                 if applied_count >= max_apps or inspected_count >= max_inspected or (time.time() - start_time) > max_runtime_sec:
                     stop_search = True
                     break
@@ -487,7 +491,8 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
                     job_url=j["job_url"],
                     job_title=j["job_title"],
                     company=j["company"],
-                    job_id=j.get("job_id", "")
+                    job_id=j.get("job_id", ""),
+                    match_score=j.get("match_score", 0.0)
                 )
                 if res == "APPLIED":
                     applied_count += 1
