@@ -35,6 +35,11 @@ class AIAssistant:
         self.client = None
         self._quota_exhausted = False
 
+        # DeepSeek LLM Configuration (DeepSeek-V4.1-Flash-1017)
+        self.deepseek_model = getattr(settings.models, "llm", "deepseek-ai/DeepSeek-V4.1-Flash-1017")
+        self.deepseek_api_key = getattr(settings.models, "deepseek_api_key", None) or os.getenv("DEEPSEEK_API_KEY")
+        self.deepseek_base_url = getattr(settings.models, "deepseek_base_url", "https://api.deepseek.com/v1")
+
         # Fine-Tuned Model Configuration (Trained on Colab)
         self.hf_model_id = os.getenv("HF_MODEL_ID")
         self.hf_token = os.getenv("HF_TOKEN")
@@ -42,6 +47,8 @@ class AIAssistant:
         self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.local_model_path = os.getenv("LOCAL_MODEL_PATH", "data/trained_model")
 
+        if self.deepseek_api_key:
+            log.info(f"[bold green]✓ DeepSeek LLM active:[/bold green] {self.deepseek_model}")
         if self.hf_model_id:
             log.info(f"[bold green]✓ Fine-Tuned Cloud Model configured:[/bold green] {self.hf_model_id}")
         elif Path(self.local_model_path).exists():
@@ -55,6 +62,11 @@ class AIAssistant:
                 log.info("[bold green]✓ Gemini AI Assistant initialized for smart form answering![/bold green]")
             except Exception as e:
                 log.warning(f"Could not initialize Gemini Client: {e}")
+
+    @property
+    def has_deepseek(self) -> bool:
+        """Returns True if DeepSeek API key or HF routing is configured."""
+        return bool(self.deepseek_api_key)
 
     @property
     def has_fine_tuned_model(self) -> bool:
@@ -75,6 +87,58 @@ class AIAssistant:
         """Queries fine-tuned model via Hugging Face Serverless API or Ollama."""
         if not REQUESTS_AVAILABLE:
             return None
+
+    def _query_deepseek(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        job_context: str = ""
+    ) -> Optional[str]:
+        """Queries DeepSeek-V4.1-Flash for high-speed screening question reasoning."""
+        if not REQUESTS_AVAILABLE or not self.deepseek_api_key:
+            return None
+
+        opts_str = f"\nAvailable options to pick from: {options}" if options else ""
+        system_msg = (
+            "You are an expert autonomous job application agent for candidate Avinash Talpade, "
+            "a DevOps and Cloud Engineer with 3.6 years experience. "
+            "Always be truthful to candidate profile. If asked for a number, return ONLY digits. "
+            "If options are provided, select EXACT option text. Keep open answers concise (1-2 sentences)."
+            f"\n{self.get_candidate_context()}"
+        )
+        user_msg = f"Recruiter Question: '{question}'\nField Type: {field_type}{opts_str}\nJob Context: {job_context[:300]}\nProvide ONLY the direct answer:"
+
+        headers = {
+            "Authorization": f"Bearer {self.deepseek_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.deepseek_model,
+            "messages": [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 100
+        }
+
+        try:
+            api_url = f"{self.deepseek_base_url.rstrip('/')}/chat/completions"
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=8)
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        if (content.startswith('"') and content.endswith('"')) or (content.startswith("'") and content.endswith("'")):
+                            content = content[1:-1].strip()
+                        return content
+        except Exception as e:
+            log.debug(f"DeepSeek API call failed: {e}")
+
+        return None
 
         opts_str = f"\nAvailable Options: {', '.join(options)}" if options else ""
         system_instruction = (
@@ -139,6 +203,58 @@ class AIAssistant:
                         return ans
             except Exception as e:
                 log.debug(f"Ollama call failed: {e}")
+
+        return None
+
+    def _query_deepseek(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        job_context: str = ""
+    ) -> Optional[str]:
+        """Queries DeepSeek-V4.1-Flash for high-speed screening question reasoning."""
+        if not REQUESTS_AVAILABLE or not self.deepseek_api_key:
+            return None
+
+        opts_str = f"\nAvailable options to pick from: {options}" if options else ""
+        system_msg = (
+            "You are an expert autonomous job application agent for candidate Avinash Talpade, "
+            "a DevOps and Cloud Engineer with 3.6 years experience. "
+            "Always be truthful to candidate profile. If asked for a number, return ONLY digits. "
+            "If options are provided, select EXACT option text. Keep open answers concise (1-2 sentences)."
+            f"\n{self.get_candidate_context()}"
+        )
+        user_msg = f"Recruiter Question: '{question}'\nField Type: {field_type}{opts_str}\nJob Context: {job_context[:300]}\nProvide ONLY the direct answer:"
+
+        headers = {
+            "Authorization": f"Bearer {self.deepseek_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.deepseek_model,
+            "messages": [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 100
+        }
+
+        try:
+            api_url = f"{self.deepseek_base_url.rstrip('/')}/chat/completions"
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=8)
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "").strip()
+                    if content:
+                        if (content.startswith('"') and content.endswith('"')) or (content.startswith("'") and content.endswith("'")):
+                            content = content[1:-1].strip()
+                        return content
+        except Exception as e:
+            log.debug(f"DeepSeek API call failed: {e}")
 
         return None
 
@@ -336,15 +452,23 @@ Candidate Background:
         final_answer = ""
         source = "heuristic"
 
-        # 1. Try Fine-Tuned Model (Qwen-2.5-1.5B trained on Colab)
-        if self.has_fine_tuned_model:
+        # 1. Try DeepSeek Flash LLM (deepseek-ai/DeepSeek-V4.1-Flash-1017)
+        if self.has_deepseek:
+            ds_ans = self._query_deepseek(question, field_type, options, job_context)
+            if ds_ans:
+                final_answer = ds_ans
+                source = "deepseek"
+                log.info(f"[cyan]⚡ DeepSeek-V4.1-Flash answered:[/cyan] '{question}' -> [bold green]'{final_answer}'[/bold green]")
+
+        # 2. Try Fine-Tuned Model (Qwen-2.5-1.5B trained on Colab)
+        if not final_answer and self.has_fine_tuned_model:
             ft_ans = self._query_fine_tuned_model(question, field_type, options, job_context)
             if ft_ans:
                 final_answer = ft_ans
                 source = "fine_tuned"
                 log.info(f"[cyan]🎯 Fine-Tuned Model answered:[/cyan] '{question}' -> [bold green]'{final_answer}'[/bold green]")
 
-        # 2. Try Google Gemini API
+        # 3. Try Google Gemini API
         if not final_answer and self.is_active:
             options_str = f"\nAvailable options to pick from: {options}" if options else ""
             system_instruction = (

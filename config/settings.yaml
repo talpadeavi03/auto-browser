@@ -92,3 +92,12 @@ naukri:
 reporting:
   auto_export_csv: true
   export_dir: "data/exports"
+
+# AI Matching & LLM Stack
+models:
+  llm: "deepseek-ai/DeepSeek-V4.1-Flash-1017"
+  embeddings: "BAAI/bge-m3"
+  resume_embeddings: "TechWolf/JobBERT-v3"
+  reranker: "BAAI/bge-reranker-v2-m3"
+  min_match_score: 0.65 # Minimum cross-encoder reranker score required to auto-apply
+

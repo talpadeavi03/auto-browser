@@ -82,12 +82,22 @@ class ReportingConfig(BaseModel):
     auto_export_csv: bool = True
     export_dir: str = "data/exports"
 
+class AIModelsConfig(BaseModel):
+    llm: str = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
+    embeddings: str = "BAAI/bge-m3"
+    resume_embeddings: str = "TechWolf/JobBERT-v3"
+    reranker: str = "BAAI/bge-reranker-v2-m3"
+    min_match_score: float = 0.65
+    deepseek_api_key: Optional[str] = None
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
+
 class AppConfig(BaseModel):
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
     profile: ProfileConfig = Field(default_factory=ProfileConfig)
     linkedin: LinkedInConfig = Field(default_factory=LinkedInConfig)
     naukri: NaukriConfig = Field(default_factory=NaukriConfig)
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
+    models: AIModelsConfig = Field(default_factory=AIModelsConfig)
 
     @classmethod
     def load(cls) -> "AppConfig":
@@ -103,6 +113,10 @@ class AppConfig(BaseModel):
         env_headless = os.getenv("HEADLESS")
         if env_headless is not None:
             config.browser.headless = env_headless.lower() in ("1", "true", "yes")
+
+        env_deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+        if env_deepseek_key:
+            config.models.deepseek_api_key = env_deepseek_key
 
         # Resolve paths relative to ROOT_DIR
         config.browser.user_data_dir = str(ROOT_DIR / config.browser.user_data_dir)

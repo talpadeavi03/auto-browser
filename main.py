@@ -348,20 +348,28 @@ def verify():
     else:
         console.print("⚠️ Training Dataset: [bold red]Not found[/bold red]")
 
-    # 2. AI Answering Engine Status
-    console.print("\n[bold white]AI Answering Architecture Status:[/bold white]")
-    if ai_assistant.hf_model_id:
+    # 2. AI Answering & Semantic Matching Stack Status
+    from core.ai_matcher import ai_matcher
+    console.print("\n[bold white]AI Answering & Semantic Reranking Stack:[/bold white]")
+    console.print(f"  • LLM (Form Reasoning): [bold green]{settings.models.llm}[/bold green]")
+    console.print(f"  • Embeddings (General): [bold green]{settings.models.embeddings}[/bold green]")
+    console.print(f"  • Resume Embeddings: [bold green]{settings.models.resume_embeddings}[/bold green]")
+    console.print(f"  • Cross-Encoder Reranker: [bold green]{settings.models.reranker}[/bold green] (Threshold: {settings.models.min_match_score * 100:.0f}%)")
+
+    if ai_assistant.deepseek_api_key:
+        console.print(f"  • DeepSeek API: [bold green]Active[/bold green]")
+    elif ai_assistant.hf_model_id:
         console.print(f"  • Fine-Tuned Cloud Model: [bold green]{ai_assistant.hf_model_id}[/bold green]")
-        console.print(f"  • HF Token set: [bold green]{'Yes' if ai_assistant.hf_token else 'No'}[/bold green]")
-    else:
-        console.print("  • Fine-Tuned Model: [dim]Not configured (set HF_MODEL_ID in .env)[/dim]")
-
     if ai_assistant.is_active:
-        console.print("  • Google Gemini 2.5 Flash: [bold green]Active[/bold green]")
-    else:
-        console.print("  • Google Gemini: [dim]Inactive / Quota limit[/dim]")
+        console.print("  • Google Gemini 2.5 Flash: [bold green]Active (Fallback)[/bold green]")
+    console.print("  • Local Heuristic Engine: [bold green]Active (Safety Fallback)[/bold green]")
 
-    console.print("  • Local Heuristic Fallback Engine: [bold green]Active[/bold green]")
+    # 3. Test Semantic Job Matcher
+    sample_job = {"job_title": "Senior Cloud & DevOps Engineer", "company": "Hyperscale Cloud Inc", "snippet": "Looking for AWS, Kubernetes EKS, Terraform, and Docker expert for cloud migration."}
+    score = ai_matcher.score_job(sample_job["job_title"], sample_job["company"], sample_job["snippet"])
+    console.print(f"\n[bold white]Semantic Job Matching Reranker Test:[/bold white]")
+    console.print(f"  Sample Job: [cyan]'{sample_job['job_title']}'[/cyan] at [cyan]'{sample_job['company']}'[/cyan]")
+    console.print(f"  Compatibility Score: [bold green]{score * 100:.1f}% match[/bold green] (via {settings.models.reranker})\n")
 
     # 3. Live Benchmark Q&A Test
     console.print("\n[bold white]Running Live Screening Q&A Test:[/bold white]")
