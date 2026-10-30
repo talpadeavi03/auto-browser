@@ -6,6 +6,7 @@ __pycache__/
 *.pyo
 
 # Sensitive User Data & Resumes
+profile.yaml
 data/resumes/*
 !data/resumes/.gitkeep
 *.pdf
@@ -33,6 +34,7 @@ data/exports/*
 !.env.template
 .env.local
 data/auth_*
+data/*secret*
 *.token
 *.key
 *.pem

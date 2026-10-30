@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Job Overview</title></head>
+<body>
+  <h1>Senior DevOps Engineer at Acme</h1>
+  <p>Great opportunity for DevOps engineers...</p>
+  <button id="cta" onclick="document.getElementById('cta').style.display='none'; document.getElementById('form-container').style.display='block';">Apply Now</button>
+  <div id="form-container" style="display:none;">
+    <form onsubmit="event.preventDefault(); document.body.innerHTML='<h1>Thank you for applying!</h1>';">
+      <label for="name">Full Name *</label>
+      <input id="name" name="name" required />
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+</body>
+</html>

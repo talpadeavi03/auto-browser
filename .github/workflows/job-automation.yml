@@ -88,6 +88,22 @@ jobs:
               print(f'⚠️ Warning: Could not decode AUTH_STORAGE_STATE ({e}). Continuing without cached session.')
           "
 
+      - name: Restore Candidate Profile & Resume Secrets
+        env:
+          PROFILE_YAML_B64: ${{ secrets.PROFILE_YAML_B64 }}
+          RESUME_PDF_B64: ${{ secrets.RESUME_PDF_B64 }}
+        run: |
+          mkdir -p data/resumes
+          if [ -n "$PROFILE_YAML_B64" ]; then
+            echo "$PROFILE_YAML_B64" | base64 -d > profile.yaml
+            echo "✓ Successfully restored profile.yaml from secret!"
+          fi
+          if [ -n "$RESUME_PDF_B64" ]; then
+            echo "$RESUME_PDF_B64" | base64 -d > data/resumes/resume.pdf
+            echo "$RESUME_PDF_B64" | base64 -d > resume.pdf
+            echo "✓ Successfully restored resume.pdf from secret!"
+          fi
+
       - name: Test MCP Server & CLI Engine
         env:
           PYTHONPATH: .
@@ -101,10 +117,14 @@ jobs:
           LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
         run: |
           python -c "import mcp_server; print('✓ MCP Server verified successfully!')"
+          python test_forms.py || true
+          python eval_answers.py || true
           python -c "
           import os
           print('--- Cloud Authentication Diagnostics ---')
           print('✓ AUTH_STORAGE_STATE secret set:', bool(os.getenv('AUTH_STORAGE_STATE', '').strip()))
+          print('✓ PROFILE_YAML_B64 secret set:', bool(os.getenv('PROFILE_YAML_B64', '').strip()))
+          print('✓ RESUME_PDF_B64 secret set:', bool(os.getenv('RESUME_PDF_B64', '').strip()))
           print('✓ DEEPSEEK_API_KEY secret set:', bool(os.getenv('DEEPSEEK_API_KEY', '').strip()))
           print('✓ HF_MODEL_ID secret set:', bool(os.getenv('HF_MODEL_ID', '').strip()))
           print('✓ HF_TOKEN secret set:', bool(os.getenv('HF_TOKEN', '').strip()))
