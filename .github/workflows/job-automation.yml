@@ -2,7 +2,7 @@ name: 24/7 Cloud Job Automation & Profile Booster
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master, main, 2.0 ]
   schedule:
     # Runs every 3 hours at minute 23 (off-peak minute to prevent GitHub queue drops/delays)
     - cron: '23 */3 * * *'
@@ -19,6 +19,11 @@ on:
           - 'linkedin-boost'
           - 'linkedin-apply'
           - 'naukri-apply'
+          - 'indeed-apply'
+          - 'glassdoor-apply'
+          - 'foundit-apply'
+          - 'ambitionbox-apply'
+          - 'jobot-apply'
           - 'scrape-jobs'
           - 'verify'
 
@@ -154,13 +159,18 @@ jobs:
           ACTION="${{ inputs.action }}"
 
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ]; then
-            echo "⏰ Running Profile Booster & Auto-Apply sequence..."
+            echo "⏰ Running Profile Booster & Multi-Platform Auto-Apply sequence..."
             xvfb-run -a python main.py naukri-refresh || true
             xvfb-run -a python main.py linkedin-refresh || true
             xvfb-run -a python main.py linkedin-apply --limit 5 || true
             xvfb-run -a python main.py naukri-apply --limit 5 || true
+            xvfb-run -a python main.py indeed-apply --limit 5 || true
+            xvfb-run -a python main.py glassdoor-apply --limit 5 || true
+            xvfb-run -a python main.py foundit-apply --limit 5 || true
+            xvfb-run -a python main.py ambitionbox-apply --limit 5 || true
+            xvfb-run -a python main.py jobot-apply --limit 5 || true
           elif [ "$ACTION" = "run-all" ]; then
-            echo "🚀 Running complete RPA sequence (Boost + LinkedIn + Naukri)..."
+            echo "🚀 Running complete Multi-Platform RPA sequence (Naukri, LinkedIn, Indeed, Glassdoor, Foundit, AmbitionBox, Jobot)..."
             xvfb-run -a python main.py run-all --limit 5 || true
           elif [ "$ACTION" = "naukri-boost" ]; then
             xvfb-run -a python main.py naukri-refresh
@@ -170,8 +180,20 @@ jobs:
             xvfb-run -a python main.py linkedin-apply --limit 10
           elif [ "$ACTION" = "naukri-apply" ]; then
             xvfb-run -a python main.py naukri-apply --limit 10
+          elif [ "$ACTION" = "indeed-apply" ]; then
+            xvfb-run -a python main.py indeed-apply --limit 10
+          elif [ "$ACTION" = "glassdoor-apply" ]; then
+            xvfb-run -a python main.py glassdoor-apply --limit 10
+          elif [ "$ACTION" = "foundit-apply" ]; then
+            xvfb-run -a python main.py foundit-apply --limit 10
+          elif [ "$ACTION" = "ambitionbox-apply" ]; then
+            xvfb-run -a python main.py ambitionbox-apply --limit 10
+          elif [ "$ACTION" = "jobot-apply" ]; then
+            xvfb-run -a python main.py jobot-apply --limit 10
           elif [ "$ACTION" = "scrape-jobs" ]; then
             xvfb-run -a python main.py scrape --platform all
+          elif [ "$ACTION" = "verify" ]; then
+            python main.py verify
           fi
 
           python main.py export || true
@@ -187,7 +209,7 @@ jobs:
             git add data/training_dataset.jsonl
             if ! git diff --staged --quiet; then
               git commit -m "data: auto-sync continuous ML dataset [skip ci]"
-              git push origin master
+              git push origin HEAD
               echo "✓ Successfully committed and pushed fresh training dataset to GitHub for Google Colab!"
             else
               echo "No new interaction dataset changes to commit."

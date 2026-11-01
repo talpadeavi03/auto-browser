@@ -19,6 +19,16 @@ from modules.naukri.auto_apply import run_naukri_auto_apply
 from modules.linkedin.scraper import is_linkedin_logged_in, scrape_linkedin_jobs
 from modules.linkedin.easy_apply import run_linkedin_easy_apply
 from modules.linkedin.profile_booster import refresh_linkedin_profile
+from modules.indeed.scraper import scrape_indeed_jobs
+from modules.indeed.auto_apply import run_indeed_auto_apply
+from modules.glassdoor.scraper import scrape_glassdoor_jobs
+from modules.glassdoor.auto_apply import run_glassdoor_auto_apply
+from modules.foundit.scraper import scrape_foundit_jobs
+from modules.foundit.auto_apply import run_foundit_auto_apply
+from modules.ambitionbox.scraper import scrape_ambitionbox_jobs
+from modules.ambitionbox.auto_apply import run_ambitionbox_auto_apply
+from modules.jobot.scraper import scrape_jobot_jobs
+from modules.jobot.auto_apply import run_jobot_auto_apply
 from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
 from core.auto_auth import auto_login_linkedin, auto_login_naukri, persist_session_cookies
@@ -180,12 +190,62 @@ def linkedin_apply(limit: int, headless: bool):
         run_linkedin_easy_apply(page, limit=limit)
         print_stats_table()
 
+@cli.command("indeed-apply")
+@click.option("--limit", default=10, type=int, help="Max jobs to apply to on Indeed")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def indeed_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to matching Indeed jobs using Indeed Apply or external ATS."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        run_indeed_auto_apply(page, limit=limit)
+        print_stats_table()
+
+@cli.command("glassdoor-apply")
+@click.option("--limit", default=10, type=int, help="Max jobs to apply to on Glassdoor")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def glassdoor_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to matching Glassdoor jobs using Easy Apply or external ATS."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        run_glassdoor_auto_apply(page, limit=limit)
+        print_stats_table()
+
+@cli.command("foundit-apply")
+@click.option("--limit", default=10, type=int, help="Max jobs to apply to on Foundit (Monster)")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def foundit_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to matching Foundit jobs using Quick Apply or external ATS."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        run_foundit_auto_apply(page, limit=limit)
+        print_stats_table()
+
+@cli.command("ambitionbox-apply")
+@click.option("--limit", default=10, type=int, help="Max jobs to apply to on AmbitionBox")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def ambitionbox_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to matching AmbitionBox jobs using direct InfoEdge or company ATS."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        run_ambitionbox_auto_apply(page, limit=limit)
+        print_stats_table()
+
+@cli.command("jobot-apply")
+@click.option("--limit", default=10, type=int, help="Max jobs to apply to on Jobot")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def jobot_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to matching Jobot jobs using 1-Click apply or external ATS."""
+    with get_browser(headless=headless) as browser:
+        page = browser.new_page()
+        run_jobot_auto_apply(page, limit=limit)
+        print_stats_table()
+
 @cli.command("apply")
-@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform to apply on")
+@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri", "indeed", "glassdoor", "foundit", "ambitionbox", "jobot"]), default="all", help="Target platform to apply on")
 @click.option("--limit", default=5, type=int, help="Max jobs to apply to per platform")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
 def apply_cmd(platform: str, limit: int, headless: bool):
-    """Auto-apply to jobs on LinkedIn, Naukri, or both using AI Semantic Matching."""
+    """Auto-apply to jobs on LinkedIn, Naukri, Indeed, Glassdoor, Foundit, AmbitionBox, or Jobot."""
     console.print(Panel.fit(f"[bold cyan]Starting AI Auto-Apply on {platform.upper()} (Limit: {limit})[/bold cyan]"))
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
@@ -204,6 +264,41 @@ def apply_cmd(platform: str, limit: int, headless: bool):
             else:
                 console.print("[bold yellow]Naukri session inactive. Skipping Naukri apply.[/bold yellow]")
 
+        if platform in ("all", "indeed"):
+            console.print("\n[bold cyan]Targeting Indeed Auto-Apply...[/bold cyan]")
+            try:
+                run_indeed_auto_apply(page, limit=limit)
+            except Exception as e:
+                log.error(f"Indeed apply failed: {e}")
+
+        if platform in ("all", "glassdoor"):
+            console.print("\n[bold cyan]Targeting Glassdoor Auto-Apply...[/bold cyan]")
+            try:
+                run_glassdoor_auto_apply(page, limit=limit)
+            except Exception as e:
+                log.error(f"Glassdoor apply failed: {e}")
+
+        if platform in ("all", "foundit"):
+            console.print("\n[bold cyan]Targeting Foundit Auto-Apply...[/bold cyan]")
+            try:
+                run_foundit_auto_apply(page, limit=limit)
+            except Exception as e:
+                log.error(f"Foundit apply failed: {e}")
+
+        if platform in ("all", "ambitionbox"):
+            console.print("\n[bold cyan]Targeting AmbitionBox Auto-Apply...[/bold cyan]")
+            try:
+                run_ambitionbox_auto_apply(page, limit=limit)
+            except Exception as e:
+                log.error(f"AmbitionBox apply failed: {e}")
+
+        if platform in ("all", "jobot"):
+            console.print("\n[bold cyan]Targeting Jobot Auto-Apply...[/bold cyan]")
+            try:
+                run_jobot_auto_apply(page, limit=limit)
+            except Exception as e:
+                log.error(f"Jobot apply failed: {e}")
+
     print_stats_table()
     export_reports()
 
@@ -221,7 +316,7 @@ def external_apply(url: str, company: str, title: str, headless: bool):
         print_stats_table()
 
 @cli.command("scrape")
-@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all")
+@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri", "indeed", "glassdoor", "foundit", "ambitionbox", "jobot"]), default="all")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
 def scrape(platform: str, headless: bool):
     """Scrape and track matching jobs with AI semantic match ranking."""
@@ -238,6 +333,31 @@ def scrape(platform: str, headless: bool):
             for kw in settings.linkedin.search_keywords:
                 for loc in settings.linkedin.locations:
                     all_scraped.extend(scrape_linkedin_jobs(page, keyword=kw, location=loc, max_jobs=15))
+
+        if platform in ("all", "indeed"):
+            for kw in getattr(getattr(settings, "indeed", None), "search_keywords", settings.naukri.search_keywords):
+                for loc in getattr(getattr(settings, "indeed", None), "locations", ["Pune", "Bengaluru", "Remote", "India"]):
+                    all_scraped.extend(scrape_indeed_jobs(page, keyword=kw, location=loc, max_pages=1))
+
+        if platform in ("all", "glassdoor"):
+            for kw in getattr(getattr(settings, "glassdoor", None), "search_keywords", settings.naukri.search_keywords):
+                for loc in getattr(getattr(settings, "glassdoor", None), "locations", ["Pune", "Bengaluru", "Remote", "India"]):
+                    all_scraped.extend(scrape_glassdoor_jobs(page, keyword=kw, location=loc, max_jobs=12))
+
+        if platform in ("all", "foundit"):
+            for kw in getattr(getattr(settings, "foundit", None), "search_keywords", settings.naukri.search_keywords):
+                for loc in getattr(getattr(settings, "foundit", None), "locations", ["Pune", "Bengaluru", "Remote"]):
+                    all_scraped.extend(scrape_foundit_jobs(page, keyword=kw, location=loc, max_jobs=12))
+
+        if platform in ("all", "ambitionbox"):
+            for kw in getattr(getattr(settings, "ambitionbox", None), "search_keywords", settings.naukri.search_keywords):
+                for loc in getattr(getattr(settings, "ambitionbox", None), "locations", ["Pune", "Bengaluru", "Remote"]):
+                    all_scraped.extend(scrape_ambitionbox_jobs(page, keyword=kw, location=loc, max_jobs=12))
+
+        if platform in ("all", "jobot"):
+            for kw in getattr(getattr(settings, "jobot", None), "search_keywords", settings.naukri.search_keywords):
+                for loc in getattr(getattr(settings, "jobot", None), "locations", ["Remote", "India", "Pune"]):
+                    all_scraped.extend(scrape_jobot_jobs(page, keyword=kw, location=loc, max_jobs=12))
 
     if all_scraped:
         from core.ai_matcher import ai_matcher
@@ -264,8 +384,8 @@ def export(dir: str):
 @click.option("--limit", default=10, type=int, help="Max applications per platform")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
 def run_all(limit: int, headless: bool):
-    """Full automation sequence: Boost Naukri profile -> Apply on LinkedIn -> Apply on Naukri -> Export reports."""
-    console.print(Panel.fit("[bold green]Starting Complete RPA Workflow Sequence[/bold green]", title="Auto-Browser"))
+    """Full automation sequence: Boost profiles -> Apply across Naukri, LinkedIn, Indeed, Glassdoor, Foundit, AmbitionBox, Jobot -> Export reports."""
+    console.print(Panel.fit("[bold green]Starting Complete Multi-Platform RPA Workflow Sequence[/bold green]", title="Auto-Browser 2.0"))
 
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
@@ -302,11 +422,46 @@ def run_all(limit: int, headless: bool):
         except Exception as e:
             log.error(f"Naukri apply step failed: {e}")
 
-    # Step 4: Summary & Export
-    console.print("\n[bold cyan]Step 4: Generating Metrics & Reports...[/bold cyan]")
+        # Step 4: Indeed Auto-Apply
+        console.print("\n[bold cyan]Step 4: Running Indeed Auto-Apply...[/bold cyan]")
+        try:
+            run_indeed_auto_apply(page, limit=limit)
+        except Exception as e:
+            log.error(f"Indeed apply step failed: {e}")
+
+        # Step 5: Glassdoor Auto-Apply
+        console.print("\n[bold cyan]Step 5: Running Glassdoor Auto-Apply...[/bold cyan]")
+        try:
+            run_glassdoor_auto_apply(page, limit=limit)
+        except Exception as e:
+            log.error(f"Glassdoor apply step failed: {e}")
+
+        # Step 6: Foundit Auto-Apply
+        console.print("\n[bold cyan]Step 6: Running Foundit Auto-Apply...[/bold cyan]")
+        try:
+            run_foundit_auto_apply(page, limit=limit)
+        except Exception as e:
+            log.error(f"Foundit apply step failed: {e}")
+
+        # Step 7: AmbitionBox Auto-Apply
+        console.print("\n[bold cyan]Step 7: Running AmbitionBox Auto-Apply...[/bold cyan]")
+        try:
+            run_ambitionbox_auto_apply(page, limit=limit)
+        except Exception as e:
+            log.error(f"AmbitionBox apply step failed: {e}")
+
+        # Step 8: Jobot Auto-Apply
+        console.print("\n[bold cyan]Step 8: Running Jobot Auto-Apply...[/bold cyan]")
+        try:
+            run_jobot_auto_apply(page, limit=limit)
+        except Exception as e:
+            log.error(f"Jobot apply step failed: {e}")
+
+    # Step 9: Summary & Export
+    console.print("\n[bold cyan]Step 9: Generating Multi-Platform Metrics & Reports...[/bold cyan]")
     print_stats_table()
     export_reports()
-    console.print("\n[bold green]✓ Complete RPA Workflow sequence finished successfully![/bold green]")
+    console.print("\n[bold green]✓ Complete Multi-Platform RPA Workflow finished successfully![/bold green]")
 
 @cli.command("export-auth")
 def export_auth():

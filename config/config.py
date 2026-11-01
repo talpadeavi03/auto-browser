@@ -82,6 +82,34 @@ class ReportingConfig(BaseModel):
     auto_export_csv: bool = True
     export_dir: str = "data/exports"
 
+class PlatformJobConfig(BaseModel):
+    enabled: bool = True
+    search_keywords: List[str] = [
+        "DevOps Engineer",
+        "Cloud Engineer",
+        "MLOps Engineer",
+        "DevSecOps Engineer",
+        "Infrastructure Engineer",
+        "System Engineer"
+    ]
+    locations: List[str] = ["Pune", "Bengaluru", "Remote", "India"]
+    max_applications_per_run: int = 10
+
+class IndeedConfig(PlatformJobConfig):
+    pass
+
+class GlassdoorConfig(PlatformJobConfig):
+    pass
+
+class FounditConfig(PlatformJobConfig):
+    pass
+
+class AmbitionBoxConfig(PlatformJobConfig):
+    pass
+
+class JobotConfig(PlatformJobConfig):
+    pass
+
 class AIModelsConfig(BaseModel):
     llm: str = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
     embeddings: str = "BAAI/bge-m3"
@@ -96,6 +124,11 @@ class AppConfig(BaseModel):
     profile: ProfileConfig = Field(default_factory=ProfileConfig)
     linkedin: LinkedInConfig = Field(default_factory=LinkedInConfig)
     naukri: NaukriConfig = Field(default_factory=NaukriConfig)
+    indeed: IndeedConfig = Field(default_factory=IndeedConfig)
+    glassdoor: GlassdoorConfig = Field(default_factory=GlassdoorConfig)
+    foundit: FounditConfig = Field(default_factory=FounditConfig)
+    ambitionbox: AmbitionBoxConfig = Field(default_factory=AmbitionBoxConfig)
+    jobot: JobotConfig = Field(default_factory=JobotConfig)
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
     models: AIModelsConfig = Field(default_factory=AIModelsConfig)
 

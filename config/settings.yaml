@@ -17,17 +17,17 @@ profile:
   city: "Pune"
   state: "Maharashtra"
   country: "India"
-  postal_code: "411001"
+  postal_code: "411038"
   linkedin_url: "https://www.linkedin.com/in/talpadeavi/"
   github_url: "https://github.com/talpadeavi03"
   portfolio_url: ""
   headline: "DevOps & Cloud Engineer | AWS, Kubernetes, Terraform, CI/CD, MLOps"
-  summary: "Experienced DevOps & Cloud Engineer with 3.6 years of expertise in automating, deploying, and maintaining cloud platforms on AWS/GCP with Kubernetes, Terraform, and CI/CD."
-  degree: "Bachelor of Engineering"
+  summary: "Experienced DevOps & Cloud Engineer with 3.6 years of expertise in automating, deploying, and maintaining cloud platforms on AWS/Azure with Kubernetes, Terraform, and CI/CD."
+  degree: "Masters in Computer Application"
   branch: "Information Technology"
   university: "Savitribai Phule Pune University"
-  college: "Pune Institute of Computer Technology"
-  graduation_year: "2021"
+  college: "ATES Akole"
+  graduation_year: "2023"
   current_company: "Cloud & DevOps Solutions"
   current_designation: "DevOps Engineer"
   skills: "AWS, Kubernetes, Docker, Terraform, CI/CD, GitHub Actions, Linux, Python, Prometheus, Grafana, Ansible"
@@ -85,8 +85,85 @@ naukri:
     - "Pune"
     - "Bengaluru"
     - "Remote"
+    - "Hyderabad"
+    - "Delhi"
+    - "Chennai"
+    - "Noida"
+    - "Mumbai"
+    - "Kochi"
+    - "Ahmedabad"
+    - "Indore"
+    - "Jaipur"
+    - "Gurugram"
   experience_years: 3.6
   max_applications_per_run: 15
+
+# Indeed Automation Settings
+indeed:
+  enabled: true
+  search_keywords:
+    - "DevOps Engineer"
+    - "MLOps Engineer"
+    - "Cloud Engineer"
+    - "Site Reliability Engineer"
+  locations:
+    - "Pune"
+    - "Bengaluru"
+    - "Remote"
+    - "India"
+  max_applications_per_run: 10
+
+# Glassdoor Automation Settings
+glassdoor:
+  enabled: true
+  search_keywords:
+    - "DevOps Engineer"
+    - "Cloud Engineer"
+    - "Infrastructure Engineer"
+  locations:
+    - "Pune"
+    - "Bengaluru"
+    - "Remote"
+    - "India"
+  max_applications_per_run: 10
+
+# Foundit (Monster India) Automation Settings
+foundit:
+  enabled: true
+  search_keywords:
+    - "DevOps Engineer"
+    - "Cloud Engineer"
+    - "System Engineer"
+  locations:
+    - "Pune"
+    - "Bengaluru"
+    - "Remote"
+  max_applications_per_run: 10
+
+# AmbitionBox Automation Settings
+ambitionbox:
+  enabled: true
+  search_keywords:
+    - "DevOps Engineer"
+    - "Cloud Engineer"
+    - "Platform Engineer"
+  locations:
+    - "Pune"
+    - "Bengaluru"
+    - "Remote"
+  max_applications_per_run: 10
+
+# Jobot Automation Settings
+jobot:
+  enabled: true
+  search_keywords:
+    - "DevOps Engineer"
+    - "Cloud Engineer"
+    - "MLOps Engineer"
+  locations:
+    - "Remote"
+    - "India"
+  max_applications_per_run: 10
 
 # Export & Reporting
 reporting:
