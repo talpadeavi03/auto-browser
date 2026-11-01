@@ -1,0 +1,152 @@
+name: AmbitionBox - Job Automation & ATS Form Filler
+
+on:
+  schedule:
+    # Runs every 6 hours at minute 40
+    - cron: '40 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max jobs to apply to on AmbitionBox'
+        required: false
+        default: '10'
+
+concurrency:
+  group: ambitionbox-automation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ambitionbox:
+    name: AmbitionBox Cloud RPA Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install System Dependencies & Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Decode & Restore Authenticated Session
+        env:
+          AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
+        run: |
+          mkdir -p data
+          python -c "
+          import os, sys, json, base64
+          raw = os.getenv('AUTH_STORAGE_STATE', '').strip()
+          if not raw:
+              print('⚠️ AUTH_STORAGE_STATE secret is unset. Continuing in unauthenticated mode.')
+              sys.exit(0)
+          if raw.startswith('{') and 'cookies' in raw:
+              try:
+                  data = json.loads(raw)
+                  with open('data/auth_state.json', 'w') as f:
+                      json.dump(data, f, indent=2)
+                  print(f'✓ Successfully restored session cookies from raw JSON!')
+                  sys.exit(0)
+              except Exception as e:
+                  print(f'Raw JSON parsing failed: {e}')
+          try:
+              clean_b64 = ''.join(raw.split())
+              missing_padding = len(clean_b64) % 4
+              if missing_padding:
+                  clean_b64 += '=' * (4 - missing_padding)
+              decoded = base64.b64decode(clean_b64, validate=False).decode('utf-8')
+              data = json.loads(decoded)
+              with open('data/auth_state.json', 'w') as f:
+                  json.dump(data, f, indent=2)
+              print(f'✓ Successfully decoded and restored session cookies from Base64!')
+          except Exception as e:
+              print(f'⚠️ Warning: Could not decode AUTH_STORAGE_STATE ({e}). Continuing.')
+          "
+
+      - name: Restore Candidate Profile & Resume
+        env:
+          PROFILE_YAML_B64: ${{ secrets.PROFILE_YAML_B64 }}
+          RESUME_PDF_B64: ${{ secrets.RESUME_PDF_B64 }}
+        run: |
+          mkdir -p data/resumes
+          if [ -n "$PROFILE_YAML_B64" ]; then
+            echo "$PROFILE_YAML_B64" | base64 -d > profile.yaml
+            echo "✓ Restored profile.yaml from secret!"
+          elif [ -f data/profile_secret_for_github.txt ]; then
+            cat data/profile_secret_for_github.txt | base64 -d > profile.yaml
+            echo "✓ Restored profile.yaml from fallback template!"
+          fi
+
+          if [ -n "$RESUME_PDF_B64" ]; then
+            echo "$RESUME_PDF_B64" | base64 -d > data/resumes/resume.pdf
+            echo "$RESUME_PDF_B64" | base64 -d > data/resumes/AT_26_AI.pdf
+            echo "$RESUME_PDF_B64" | base64 -d > resume.pdf
+            echo "✓ Restored resume.pdf from secret!"
+          elif [ -f data/resume_secret_for_github.txt ]; then
+            cat data/resume_secret_for_github.txt | base64 -d > data/resumes/resume.pdf
+            cat data/resume_secret_for_github.txt | base64 -d > data/resumes/AT_26_AI.pdf
+            cat data/resume_secret_for_github.txt | base64 -d > resume.pdf
+            echo "✓ Restored resume.pdf from fallback template!"
+          fi
+
+      - name: Execute AmbitionBox Automation
+        env:
+          PYTHONPATH: .
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
+          NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+        run: |
+          LIMIT="${{ inputs.limit || '10' }}"
+          echo "Executing AmbitionBox Auto-Apply (Limit: $LIMIT)..."
+          echo "Leverages shared InfoEdge/Naukri session and Universal ATS Applier for employer career links."
+          xvfb-run -a python main.py ambitionbox-apply --limit "$LIMIT" || true
+
+          python main.py export || true
+          python main.py export-dataset || true
+          python main.py stats || true
+
+      - name: Auto-Sync Fresh ML Training Dataset to GitHub
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          python main.py export-dataset || true
+          if [ -f data/training_dataset.jsonl ]; then
+            git add data/training_dataset.jsonl
+            if ! git diff --staged --quiet; then
+              git commit -m "data: auto-sync continuous ML dataset from AmbitionBox run [skip ci]"
+              git pull --rebase origin HEAD || true
+              git push origin HEAD
+              echo "✓ Successfully committed and pushed fresh training dataset to GitHub for Google Colab!"
+            else
+              echo "No new interaction dataset changes to commit."
+            fi
+          fi
+
+      - name: Upload Application Reports & Database Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambitionbox-reports-${{ github.run_id }}
+          path: |
+            data/exports/*.xlsx
+            data/exports/*.csv
+            data/exports/*.png
+            data/exports/*.html
+            data/jobs.db
+            data/training_dataset.jsonl
+          retention-days: 14

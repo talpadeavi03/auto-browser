@@ -102,11 +102,20 @@ jobs:
           if [ -n "$PROFILE_YAML_B64" ]; then
             echo "$PROFILE_YAML_B64" | base64 -d > profile.yaml
             echo "✓ Successfully restored profile.yaml from secret!"
+          elif [ -f data/profile_secret_for_github.txt ]; then
+            cat data/profile_secret_for_github.txt | base64 -d > profile.yaml
+            echo "✓ Restored profile.yaml from fallback template!"
           fi
           if [ -n "$RESUME_PDF_B64" ]; then
             echo "$RESUME_PDF_B64" | base64 -d > data/resumes/resume.pdf
+            echo "$RESUME_PDF_B64" | base64 -d > data/resumes/AT_26_AI.pdf
             echo "$RESUME_PDF_B64" | base64 -d > resume.pdf
             echo "✓ Successfully restored resume.pdf from secret!"
+          elif [ -f data/resume_secret_for_github.txt ]; then
+            cat data/resume_secret_for_github.txt | base64 -d > data/resumes/resume.pdf
+            cat data/resume_secret_for_github.txt | base64 -d > data/resumes/AT_26_AI.pdf
+            cat data/resume_secret_for_github.txt | base64 -d > resume.pdf
+            echo "✓ Restored resume.pdf from fallback template!"
           fi
 
       - name: Test MCP Server & CLI Engine
@@ -205,10 +214,12 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          python main.py export-dataset || true
           if [ -f data/training_dataset.jsonl ]; then
             git add data/training_dataset.jsonl
             if ! git diff --staged --quiet; then
               git commit -m "data: auto-sync continuous ML dataset [skip ci]"
+              git pull --rebase origin HEAD || true
               git push origin HEAD
               echo "✓ Successfully committed and pushed fresh training dataset to GitHub for Google Colab!"
             else
