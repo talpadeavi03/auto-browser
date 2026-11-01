@@ -10,6 +10,7 @@ from core.ai_matcher import ai_matcher
 def construct_ambitionbox_search_url(keyword: str, location: str) -> str:
     """Constructs a search URL on AmbitionBox (InfoEdge network) with keywords and location."""
     params = {
+        "keyword": keyword,
         "tag": keyword,
         "location": location,
     }
@@ -35,8 +36,13 @@ def scrape_ambitionbox_jobs(page: Page, keyword: str, location: str, max_jobs: i
             "div.jobs-card",
             "div.job-listing-card",
             "div[data-job-id]",
+            "div[class*='jobs-card' i]",
+            "div[class*='JobCard' i]",
+            "div[class*='jobCard' i]",
             "div.content-wrapper:has(h2.title)",
             "div.job-card",
+            "div[class*='jobCardWrapper' i]",
+            "div[itemtype*='JobPosting']",
         ]
 
         cards = []
@@ -57,12 +63,16 @@ def scrape_ambitionbox_jobs(page: Page, keyword: str, location: str, max_jobs: i
                 job_id = card.get_attribute("data-job-id") or card.get_attribute("data-id") or ""
 
                 # Title & link
-                title_elem = card.locator("h2.title a, a.title, h3.title a, h2 a, a[href*='/jobs/']").first
+                title_elem = card.locator("h2.title a, a.title, h3.title a, h2 a, a[href*='/jobs/'], a[class*='title' i], a").first
                 if title_elem.count() == 0:
                     continue
 
                 job_title = title_elem.inner_text().strip()
-                if not job_title or len(job_title) > 120:
+                if not job_title or len(job_title) > 150:
+                    header_cand = card.locator("h2, h3, h4, div[class*='title' i]").first
+                    if header_cand.count() > 0:
+                        job_title = header_cand.inner_text().strip()
+                if not job_title or len(job_title) > 150:
                     continue
 
                 href = title_elem.get_attribute("href") or ""

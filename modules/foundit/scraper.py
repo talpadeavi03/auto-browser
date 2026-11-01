@@ -59,15 +59,23 @@ def scrape_foundit_jobs(page: Page, keyword: str, location: str, max_jobs: int =
                 job_id = card.get_attribute("id") or card.get_attribute("data-job-id") or ""
 
                 # Title & link
-                title_elem = card.locator("h3.jobTitle a, div.jobTitle a, a.cardTitle, a.title, h3 a").first
+                title_elem = card.locator("h3.jobTitle a, div.jobTitle a, a.cardTitle, a.title, h3 a, a[href*='/job/'], a[href*='/seeker/'], a[class*='title' i], a[class*='header' i], a").first
+                if title_elem.count() == 0:
+                    title_elem = card.locator("h2 a, h3 a, h4 a, a").first
                 if title_elem.count() == 0:
                     continue
 
                 job_title = title_elem.inner_text().strip()
-                if not job_title or len(job_title) > 120:
+                if not job_title or len(job_title) > 150:
+                    header_cand = card.locator("h2, h3, h4, div[class*='title' i]").first
+                    if header_cand.count() > 0:
+                        job_title = header_cand.inner_text().strip()
+                if not job_title or len(job_title) > 150:
                     continue
 
-                href = title_elem.get_attribute("href") or ""
+                href = title_elem.get_attribute("href") or card.get_attribute("data-url") or ""
+                if not href and card.locator("a").count() > 0:
+                    href = card.locator("a").first.get_attribute("href") or ""
                 if not href and job_id:
                     clean_url = f"https://www.foundit.in/job/{job_id}"
                 elif href.startswith("http"):

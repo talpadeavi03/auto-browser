@@ -34,9 +34,13 @@ def scrape_jobot_jobs(page: Page, keyword: str, location: str, max_jobs: int = 1
         card_selectors = [
             "div.job-card",
             "div.job-listing",
-            "div[class*='JobCard']",
+            "div[class*='JobCard' i]",
+            "div[class*='jobCard' i]",
+            "div[class*='job-card' i]",
             "article.job",
-            "a[href^='/jobs/']",
+            "a[href*='/jobs/']",
+            "a[href*='/job/']",
+            "div[class*='card' i]:has(a[href*='/job'])",
         ]
 
         cards = []

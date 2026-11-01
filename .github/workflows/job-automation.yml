@@ -35,7 +35,7 @@ jobs:
   automation:
     name: Cloud RPA & Auto-Apply Worker
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     permissions:
       contents: write
 

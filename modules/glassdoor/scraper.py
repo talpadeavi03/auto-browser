@@ -44,11 +44,14 @@ def scrape_glassdoor_jobs(page: Page, keyword: str, location: str, max_jobs: int
 
         card_selectors = [
             "li[data-test='jobListing']",
+            "li[class*='jobListing' i]",
             "div.jobListing",
             "article.jobCard",
-            "div.JobCard_jobCardContainer___h2pQ",
+            "div[class*='jobCard' i]",
             "div[data-jobid]",
-            "li.JobsList_jobListItem__wl4dg",
+            "li[class*='jobListItem' i]",
+            "a[data-test='job-link']",
+            "li[class*='JobsList' i]",
         ]
 
         cards = []
@@ -69,7 +72,7 @@ def scrape_glassdoor_jobs(page: Page, keyword: str, location: str, max_jobs: int
                 job_id = card.get_attribute("data-jobid") or card.get_attribute("data-id") or ""
 
                 # Title & link
-                title_elem = card.locator("a[data-test='job-title'], a.JobCard_jobTitle___daas, a.job-title, h3 a, a.jobTitle").first
+                title_elem = card.locator("a[data-test='job-title'], a[data-test='job-link'], a[class*='jobTitle' i], a.job-title, h3 a, a.jobTitle, a[href*='/job-listing/'], a[href*='/partner/jobListing.htm'], a").first
                 if title_elem.count() == 0:
                     continue
 

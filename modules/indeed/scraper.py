@@ -36,10 +36,15 @@ def scrape_indeed_jobs(page: Page, keyword: str, location: str, max_pages: int =
 
         card_selectors = [
             "div.job_seen_beacon",
+            "div[class*='job_seen_beacon' i]",
+            "div[class*='cardOutline' i]",
             "div.jobCard_mainContent",
             "td.resultContent",
             "div[data-jk]",
             "li:has(div.job_seen_beacon)",
+            "ul.css-zu9cdh li",
+            "li:has(a[data-jk])",
+            "div.slider_container div[class*='job' i]",
         ]
 
         cards = []
@@ -62,12 +67,12 @@ def scrape_indeed_jobs(page: Page, keyword: str, location: str, max_pages: int =
                         job_id = link_with_jk.get_attribute("data-jk") or ""
 
                 # Title & link
-                title_elem = card.locator("h2.jobTitle span, h2.jobTitle a, a.jcs-JobTitle, a[data-jk]").first
+                title_elem = card.locator("h2.jobTitle span, h2.jobTitle a, a.jcs-JobTitle, a[data-jk], h2 a, a[class*='JobTitle' i], a").first
                 if title_elem.count() == 0:
                     continue
 
                 job_title = title_elem.inner_text().strip()
-                if not job_title or len(job_title) > 120:
+                if not job_title or len(job_title) > 150:
                     continue
 
                 link_elem = card.locator("a[data-jk], h2.jobTitle a, a.jcs-JobTitle").first
