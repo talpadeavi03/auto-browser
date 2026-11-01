@@ -45,8 +45,20 @@ def find_brave_executable() -> Optional[str]:
             return str(c)
     return None
 
+SUPPORTED_COOKIE_DOMAINS = (
+    "naukri.com",
+    "linkedin.com",
+    "indeed.com",
+    "glassdoor.com",
+    "glassdoor.co.in",
+    "foundit.in",
+    "foundit.com",
+    "ambitionbox.com",
+    "jobot.com",
+)
+
 def clean_and_normalize_cookies(cookies: list) -> list:
-    """Cleans, normalizes domains, and deduplicates session cookies for Naukri and LinkedIn."""
+    """Cleans, normalizes domains, and deduplicates session cookies for all supported job platforms."""
     cleaned = []
     seen = set()
     for c in cookies:
@@ -54,7 +66,7 @@ def clean_and_normalize_cookies(cookies: list) -> list:
             continue
         c_clean = dict(c)
         dom = (c_clean.get("domain") or "").lower()
-        if not ("naukri.com" in dom or "linkedin.com" in dom):
+        if not any(target in dom for target in SUPPORTED_COOKIE_DOMAINS):
             continue
 
         name = c_clean.get("name", "")
