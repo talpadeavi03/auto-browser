@@ -4,8 +4,8 @@ on:
   push:
     branches: [ master, main, 2.0 ]
   schedule:
-    # Runs every 3 hours at minute 23 (off-peak minute to prevent GitHub queue drops/delays)
-    - cron: '23 */3 * * *'
+    # Runs every 2 hours automatically across all platforms
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       action:

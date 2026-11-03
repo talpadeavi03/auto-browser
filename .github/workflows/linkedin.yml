@@ -2,8 +2,8 @@ name: LinkedIn Automation & Profile Booster
 
 on:
   schedule:
-    # Runs every 6 hours at minute 30
-    - cron: '30 */6 * * *'
+    # Runs every 2 hours
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       action:

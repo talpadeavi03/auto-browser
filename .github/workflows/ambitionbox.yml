@@ -2,8 +2,8 @@ name: AmbitionBox - Job Automation & ATS Form Filler
 
 on:
   schedule:
-    # Runs every 6 hours at minute 40
-    - cron: '40 */6 * * *'
+    # Runs every 2 hours
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       limit:
