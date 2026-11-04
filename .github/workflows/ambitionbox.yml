@@ -107,7 +107,7 @@ jobs:
           HF_MODEL_ID: ${{ secrets.HF_MODEL_ID }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
-          NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME }}
+          NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME || secrets.NAUKRI_USERNAM }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

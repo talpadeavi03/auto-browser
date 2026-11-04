@@ -248,7 +248,7 @@ def auto_login_naukri(page: Page) -> bool:
     Autonomously logs into Naukri.com using direct credentials or Google OAuth.
     Prioritizes direct credentials if available in environment secrets.
     """
-    user = os.getenv("NAUKRI_USERNAME")
+    user = os.getenv("NAUKRI_USERNAME") or os.getenv("NAUKRI_USERNAM")
     pwd = os.getenv("NAUKRI_PASSWORD")
     has_creds = bool(user and pwd and "example.com" not in user and "your_" not in user and "your_" not in pwd)
 

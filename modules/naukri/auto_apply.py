@@ -13,7 +13,7 @@ from modules.external.universal_apply import UniversalATSApplier
 
 def _attempt_naukri_drawer_login(page: Page, drawer) -> bool:
     """Attempts to log into Naukri directly inside the login drawer if user credentials are present."""
-    user = os.getenv("NAUKRI_USERNAME")
+    user = os.getenv("NAUKRI_USERNAME") or os.getenv("NAUKRI_USERNAM")
     pwd = os.getenv("NAUKRI_PASSWORD")
     if not user or not pwd or "example.com" in user or "your_" in user or "your_" in pwd:
         return False
