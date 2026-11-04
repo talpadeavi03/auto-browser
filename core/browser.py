@@ -149,6 +149,13 @@ class BrowserManager:
             "--lang=en-US",
         ]
 
+        launch_headless = self.headless
+        if self.headless and os.getenv("DISPLAY"):
+            log.info("X11/Xvfb virtual display detected. Launching in full GUI emulation mode to bypass anti-bot blocks.")
+            launch_headless = False
+        elif self.headless:
+            args.append("--headless=new")
+
         executable_path = None
         if self.engine == "brave":
             brave_bin = find_brave_executable()
@@ -166,7 +173,7 @@ class BrowserManager:
         self.context = self.playwright.chromium.launch_persistent_context(
             user_data_dir=str(self.user_data_dir),
             executable_path=executable_path,
-            headless=self.headless,
+            headless=launch_headless,
             slow_mo=self.slow_mo,
             user_agent=DEFAULT_USER_AGENT,
             viewport={"width": 1400, "height": 900},

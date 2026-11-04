@@ -258,15 +258,34 @@ def auto_login_naukri(page: Page) -> bool:
         try:
             if "nlogin/login" not in page.url.lower():
                 page.goto("https://www.naukri.com/nlogin/login", timeout=30000, wait_until="domcontentloaded")
-                BrowserManager.human_delay(1.5, 2.5)
+                BrowserManager.human_delay(2.0, 3.5)
 
-            user_input = page.locator("#usernameField, input[placeholder*='Username'], input[placeholder*='Email'], input[name*='email' i]").first
+            # If Akamai Access Denied hit, recover via homepage navigation
+            if "access denied" in page.title().lower():
+                log.warning("Akamai Access Denied on direct login URL. Recovering via homepage...")
+                page.goto("https://www.naukri.com/", timeout=25000, wait_until="domcontentloaded")
+                BrowserManager.human_delay(2.0, 3.0)
+                login_btn = page.locator("#login_Layer, a:has-text('Login'), a[title*='Jobseeker Login']").first
+                if login_btn.is_visible():
+                    BrowserManager.safe_click(login_btn)
+                    BrowserManager.human_delay(2.0, 3.0)
+                else:
+                    page.goto("https://www.naukri.com/nlogin/login", timeout=25000, wait_until="domcontentloaded")
+                    BrowserManager.human_delay(2.0, 3.0)
+
+            # Wait for single-page app React form to mount
+            try:
+                page.wait_for_selector("#usernameField, input[placeholder*='Username' i], input[placeholder*='Email' i]", timeout=12000)
+            except Exception:
+                pass
+
+            user_input = page.locator("#usernameField, input[placeholder*='Username' i], input[placeholder*='Email' i], input[name*='email' i]").first
             if user_input.is_visible(timeout=6000):
                 log.info("Typing Naukri username into form...")
                 BrowserManager.human_type(user_input, user)
                 BrowserManager.human_delay(0.5, 1.2)
 
-                pwd_input = page.locator("#passwordField, input[placeholder*='password'], input[type='password']").first
+                pwd_input = page.locator("#passwordField, input[placeholder*='password' i], input[type='password']").first
                 if pwd_input.is_visible(timeout=5000):
                     log.info("Typing Naukri password into form...")
                     BrowserManager.human_type(pwd_input, pwd)
@@ -283,6 +302,18 @@ def auto_login_naukri(page: Page) -> bool:
                     except Exception:
                         pass
                     BrowserManager.human_delay(3.0, 5.0)
+
+                    # Check for OTP prompt if triggered by new cloud IP
+                    otp_field = page.locator("input[placeholder*='OTP' i], #otpField, input[name*='otp' i]").first
+                    if otp_field.is_visible(timeout=2000):
+                        log.warning("[bold yellow]📱 OTP Verification Triggered: Naukri sent an OTP to your registered phone/email. Waiting up to 60s for approval or set NAUKRI_AUTH_COOKIE secret.[/bold yellow]")
+                        for _ in range(20):
+                            BrowserManager.human_delay(2.5, 3.5)
+                            curr = page.url.lower()
+                            if any(x in curr for x in ["/mnjuser", "/homepage", "/my-naukri"]) and "nlogin" not in curr:
+                                log.info("[bold green]✓ OTP confirmed! Naukri login successful![/bold green]")
+                                persist_session_cookies(page)
+                                return True
 
                     current_url = page.url.lower()
                     if any(x in current_url for x in ["/mnjuser", "/homepage", "/my-naukri"]) and "nlogin" not in current_url:
