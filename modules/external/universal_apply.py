@@ -156,17 +156,21 @@ class UniversalATSApplier:
                 except Exception:
                     pass
 
-            if submitted or confirmed:
+            current_url = page.url.lower()
+            url_confirmed = any(k in current_url for k in ["/success", "/thank", "/confirm", "/applied", "/completed", "/submitted"])
+
+            if confirmed or url_confirmed:
                 status = "SUBMITTED"
-                notes = f"Universal ATS Applier automated submission (confirmed={confirmed})"
+                notes = f"Universal ATS Applier automated submission (confirmed={confirmed or url_confirmed})"
+                log.info(f"[bold green]✓ External application verified & submitted: {job_title} at {company}[/bold green]")
+            elif submitted:
+                status = "FAILED_UNCONFIRMED"
+                notes = "Submit button was clicked but ATS portal did not return a confirmation screen or success URL"
+                log.warning(f"⚠️ External application unconfirmed: {job_title} at {company} (Status: {status})")
             else:
                 status = "FAILED"
-                notes = "Could not locate final submit button or confirm submission on external portal"
-
-            if match_score > 0:
-                notes += f" | AI Match: {match_score*100:.1f}%"
-
-            log.info(f"[bold green]✓ External application completed: {job_title} at {company} (Status: {status})[/bold green]")
+                notes = "Could not locate final submit button or complete external ATS form"
+                log.warning(f"❌ External application failed: {job_title} at {company} ({notes})")
 
             # Save post-submit screenshot proof
             try:

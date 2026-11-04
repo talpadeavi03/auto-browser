@@ -167,26 +167,40 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                 except Exception:
                     pass
 
-                # Close post-apply popup or 'Done' dialog if present
+                # Close post-apply popup or 'Done' dialog if present and verify submission
+                confirmed = False
                 try:
                     done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label='Dismiss']").first
                     if done_btn.is_visible(timeout=3000):
+                        confirmed = True
                         BrowserManager.safe_click(done_btn)
+                    elif not modal.is_visible(timeout=2000):
+                        confirmed = True
+                    elif page.locator("text='Application sent', text='Application submitted'").first.is_visible(timeout=2000):
+                        confirmed = True
                 except Exception:
                     pass
 
-                log.info(f"[bold green]✓ Successfully applied to: {job_title} at {company} via Easy Apply![/bold green]")
+                if confirmed:
+                    status = "SUBMITTED"
+                    note_details = f"Easy Apply submitted and verified | AI Match: {match_score*100:.1f}%" if match_score > 0 else "Completed Easy Apply"
+                    log.info(f"[bold green]✓ Successfully applied to: {job_title} at {company} via Easy Apply![/bold green]")
+                else:
+                    status = "FAILED_UNCONFIRMED"
+                    note_details = "Submit application was clicked but confirmation dialog did not appear"
+                    log.warning(f"⚠️ Easy Apply unconfirmed for {job_title} at {company}")
+
                 db.record_applied_job(
                     platform="linkedin",
                     job_id=job_id,
                     job_title=job_title,
                     company=company,
                     job_url=job_url,
-                    status="APPLIED",
-                    notes=f"Easy Apply completed | AI Match: {match_score*100:.1f}%" if match_score > 0 else "Completed Easy Apply",
+                    status=status,
+                    notes=note_details,
                     match_score=match_score
                 )
-                return "APPLIED"
+                return status
 
             # Step C: Check for 'Review' button (English, Bengali, and generic aria)
             review_btn = page.locator("button:has-text('Review'), button:has-text('পর্যালোচনা'), button[aria-label*='Review' i], button[aria-label*='পর্যালোচনা']").first

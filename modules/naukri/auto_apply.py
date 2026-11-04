@@ -91,13 +91,28 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
         BrowserManager.safe_click(apply_btn)
         BrowserManager.human_delay(2.5, 4.0)
 
+        # Check for unauthenticated login drawer (Naukri opens drawer-wrapper with login form if user session expired)
+        login_drawer = page.locator("div.drawer-wrapper:has-text('Login'), div.drawer-wrapper:has(input[type='password']), #usernameField, form:has-text('Login to apply')").first
+        if login_drawer.is_visible(timeout=1500):
+            log.warning(f"❌ Naukri session is unauthenticated (login drawer detected) for {job_title}. Cannot apply without active session.")
+            db.record_applied_job(
+                platform="naukri",
+                job_id=job_id,
+                job_title=job_title,
+                company=company,
+                job_url=job_url,
+                status="FAILED_AUTH_REQUIRED",
+                notes="Naukri session expired or unauthenticated: login drawer appeared on apply"
+            )
+            return "FAILED_AUTH_REQUIRED"
+
         # Handle questionnaire / chatbot modal if it pops up
-        chatbot_or_modal = page.locator("div.chatbot_Drawer, div.apply-message, div.bot-container, div.drawer-wrapper").first
+        chatbot_or_modal = page.locator("div.chatbot_Drawer, div.apply-message, div.bot-container").first
         if chatbot_or_modal.is_visible(timeout=2000):
-            log.info("Detected screening questions / chatbot modal. Handling basic questions...")
+            log.info("Detected screening questions / chatbot modal. Handling questions...")
             handled = handle_naukri_screening_modal(page)
             if not handled:
-                log.warning("Complex screening questionnaire requires manual review. Skipping.")
+                log.warning("Screening questionnaire requires manual review or could not be completed. Skipping.")
                 db.record_applied_job(
                     platform="naukri",
                     job_id=job_id,
@@ -122,18 +137,23 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
         is_success = False
         for s_sel in success_indicators:
             try:
-                if page.locator(s_sel).first.is_visible(timeout=2000):
+                if page.locator(s_sel).first.is_visible(timeout=2500):
                     is_success = True
                     break
             except Exception:
                 pass
 
-        status = "SUBMITTED"
-        note_details = f"Direct 1-Click apply submitted (verified={is_success})"
-        if match_score > 0:
-            note_details += f" | AI Match: {match_score*100:.1f}%"
+        if is_success:
+            status = "SUBMITTED"
+            note_details = "Direct 1-Click apply submitted and verified"
+            if match_score > 0:
+                note_details += f" | AI Match: {match_score*100:.1f}%"
+            log.info(f"[bold green]✓ {status}: {job_title} at {company}[/bold green]")
+        else:
+            status = "FAILED_UNCONFIRMED"
+            note_details = "Apply button clicked but application was not confirmed by Naukri"
+            log.warning(f"⚠️ {status}: {job_title} at {company} (could not verify server confirmation)")
 
-        log.info(f"[green]✓ {status}: {job_title} at {company}[/green]")
         db.record_applied_job(
             platform="naukri",
             job_id=job_id,
@@ -162,6 +182,11 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
 def handle_naukri_screening_modal(page: Page) -> bool:
     """Answers common screening questions or yields if custom essay is required."""
     try:
+        # Check if this is actually a login modal masquerading as screening
+        if page.locator("#usernameField, input[type='password'], form:has-text('Login')").first.is_visible(timeout=1000):
+            log.warning("Detected login form inside drawer. User is not authenticated.")
+            return False
+
         # Check if simple numeric inputs exist
         inputs = page.locator("input[type='text'], input[type='number']").all()
         for inp in inputs:
@@ -200,6 +225,18 @@ def handle_naukri_screening_modal(page: Page) -> bool:
             BrowserManager.safe_click(submit_btn)
             BrowserManager.human_delay(2.0, 3.0)
             return True
+
+        # Check for send button in chatbot
+        send_btn = page.locator("button.send-btn, button[aria-label*='Send' i], .sendMsg, .send-icon").first
+        if send_btn.is_visible(timeout=1500):
+            BrowserManager.safe_click(send_btn)
+            BrowserManager.human_delay(2.0, 3.0)
+            return True
+
+        # If chatbot/modal is still open and unsubmitted, return False
+        if page.locator("div.chatbot_Drawer, div.apply-message, div.bot-container").first.is_visible(timeout=1000):
+            log.warning("Screening modal is still open. Could not locate submit action.")
+            return False
 
         return True
     except Exception as e:

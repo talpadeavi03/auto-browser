@@ -88,9 +88,9 @@ class Storage:
                 except Exception:
                     pass
 
-            # Auto-migrate legacy APPLIED / APPLIED_PENDING_CONFIRMATION to SUBMITTED
+            # Auto-migrate legacy unconfirmed entries to FAILED_UNCONFIRMED
             try:
-                cursor.execute("UPDATE applied_jobs SET status = 'SUBMITTED' WHERE status IN ('APPLIED', 'APPLIED_PENDING_CONFIRMATION')")
+                cursor.execute("UPDATE applied_jobs SET status = 'FAILED_UNCONFIRMED' WHERE status IN ('APPLIED', 'APPLIED_PENDING_CONFIRMATION')")
             except Exception:
                 pass
 
@@ -144,8 +144,8 @@ class Storage:
                 ))
                 conn.commit()
 
-                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
-                if status in ("APPLIED", "SUBMITTED"):
+                # Dispatch real-time cloud notifications (Discord / Telegram) only for verified submissions
+                if status == "SUBMITTED":
                     try:
                         from core.notifications import notifier
                         notifier.notify_application_submitted(
