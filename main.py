@@ -42,33 +42,40 @@ def cli():
 
 @cli.command()
 @click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform to log into")
-def login(platform: str):
+@click.option("--engine", type=click.Choice(["chromium", "brave"]), default="chromium", help="Browser engine for login (default: chromium)")
+def login(platform: str, engine: str):
     """Open interactive browser to log into Naukri and/or LinkedIn and save session permanently."""
     console.print(Panel.fit(
         "[bold cyan]Interactive Login Session[/bold cyan]\n\n"
-        "1. A browser window will open on your screen.\n"
-        "2. Enter your credentials, solve any OTP/2FA or Captchas.\n"
-        "3. Once you see your feed or profile, press [bold green]Enter[/bold green] in this terminal.\n"
-        "[dim]The browser will stay completely still and will NOT refresh while you type.[/dim]",
+        "1. A clean browser window will open on your screen.\n"
+        "2. Log in with your credentials (or Google OAuth / OTP).\n"
+        "3. Once you see your feed or profile, return to this terminal and press [bold green]Enter[/bold green].\n"
+        "[dim]Note: Keep the browser window open until you press Enter.[/dim]",
         title="RPA Login Setup"
     ))
 
-    # Always headful for manual login
-    with get_browser(headless=False) as browser:
+    # Always headful for manual login. Uses bundled Chromium by default to avoid conflicts with running Brave instances.
+    with get_browser(headless=False, engine=engine) as browser:
         page = browser.new_page()
+
+        # Clear stale expired cookies for a clean login
+        try:
+            page.context.clear_cookies()
+        except Exception:
+            pass
 
         # LinkedIn login
         if platform in ("all", "linkedin"):
             console.print("\n[bold yellow]Navigating to LinkedIn Login...[/bold yellow]")
             try:
-                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=20000)
+                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=25000)
             except Exception as nav_err:
-                log.warning(f"Redirect loop or navigation issue encountered ({nav_err}). Clearing stale cookies and retrying...")
+                log.warning(f"Navigation issue encountered ({nav_err}). Clearing cookies and retrying...")
                 try:
                     page.context.clear_cookies()
                 except Exception:
                     pass
-                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=20000)
+                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=25000)
             
             # Auto-fill credentials if real credentials provided in env
             user = os.getenv("LINKEDIN_USERNAME")
@@ -81,8 +88,12 @@ def login(platform: str):
                 except Exception as e:
                     log.debug(f"Auto-fill note: {e}")
 
-            console.print("\n[bold cyan]👉 Please log into LinkedIn in the opened Brave window.[/bold cyan]")
+            console.print("\n[bold cyan]👉 Please log into LinkedIn in the opened browser window.[/bold cyan]")
             Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your LinkedIn feed[/bold green]")
+
+            if page.is_closed():
+                console.print("[bold red]❌ Browser was closed before login could be saved. Please run the command again and keep the window open until you press Enter.[/bold red]")
+                return
 
             count = persist_session_cookies(page)
             if is_linkedin_logged_in(page, navigate=True):
@@ -92,16 +103,20 @@ def login(platform: str):
 
         # Naukri login
         if platform in ("all", "naukri"):
+            if page.is_closed():
+                console.print("[bold red]❌ Browser window was closed. Please run the command again.[/bold red]")
+                return
+
             console.print("\n[bold yellow]Navigating to Naukri.com Login...[/bold yellow]")
             try:
-                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
+                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=25000)
             except Exception as nav_err:
                 log.warning(f"Navigation issue encountered ({nav_err}). Clearing cookies and retrying...")
                 try:
                     page.context.clear_cookies()
                 except Exception:
                     pass
-                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
+                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=25000)
 
             # Auto-fill credentials if real credentials provided in env
             n_user = os.getenv("NAUKRI_USERNAME")
@@ -114,8 +129,12 @@ def login(platform: str):
                 except Exception as e:
                     log.debug(f"Auto-fill note: {e}")
 
-            console.print("\n[bold cyan]👉 Please log into Naukri in the opened Brave window.[/bold cyan]")
+            console.print("\n[bold cyan]👉 Please log into Naukri in the opened browser window.[/bold cyan]")
             Prompt.ask("[bold green]Press Enter here once you have finished logging in and see your Naukri dashboard[/bold green]")
+
+            if page.is_closed():
+                console.print("[bold red]❌ Browser window was closed. Please run the command again.[/bold red]")
+                return
 
             count = persist_session_cookies(page)
             if is_naukri_logged_in(page, navigate=True):
@@ -123,8 +142,9 @@ def login(platform: str):
             else:
                 console.print(f"[bold yellow]Saved {count} Naukri cookies to disk.[/bold yellow]")
 
-        final_count = persist_session_cookies(page)
-        console.print(f"\n[bold green]✓ Complete session saved ({final_count} total cookies in data/auth_state.json & data/auth_secret_for_github.txt)![/bold green]")
+        if not page.is_closed():
+            final_count = persist_session_cookies(page)
+            console.print(f"\n[bold green]✓ Complete session saved ({final_count} total cookies in data/auth_state.json & data/auth_secret_for_github.txt)![/bold green]")
 
 @cli.command("auto-login")
 @click.option("--platform", type=click.Choice(["all", "linkedin", "naukri"]), default="all", help="Target platform for auto-login")

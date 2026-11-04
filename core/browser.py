@@ -99,9 +99,10 @@ class BrowserManager:
     Supports native Brave Browser as well as standard Chromium.
     Supports direct connection to currently open Brave via CDP (port 9222).
     """
-    def __init__(self, headless: Optional[bool] = None, slow_mo: Optional[int] = None):
+    def __init__(self, headless: Optional[bool] = None, slow_mo: Optional[int] = None, engine: Optional[str] = None):
         self.headless = headless if headless is not None else settings.browser.headless
         self.slow_mo = slow_mo if slow_mo is not None else settings.browser.slow_mo_ms
+        self.engine = (engine or settings.browser.engine).lower()
         self.user_data_dir = Path(settings.browser.user_data_dir)
         self.user_data_dir.mkdir(parents=True, exist_ok=True)
         self.stealth = Stealth()
@@ -149,7 +150,7 @@ class BrowserManager:
         ]
 
         executable_path = None
-        if settings.browser.engine.lower() == "brave":
+        if self.engine == "brave":
             brave_bin = find_brave_executable()
             if brave_bin and not (self.headless and "flatpak" in brave_bin.lower()):
                 executable_path = brave_bin
@@ -158,6 +159,8 @@ class BrowserManager:
                 log.info("Flatpak Brave detected in headless mode. Using bundled Chromium to guarantee network sandbox stability.")
             else:
                 log.warning("Brave requested but executable not found. Falling back to bundled Chromium.")
+        else:
+            log.info("Using bundled Chromium engine.")
 
         log.info(f"Launching persistent browser context (headless={self.headless})...")
         self.context = self.playwright.chromium.launch_persistent_context(
@@ -355,9 +358,9 @@ class BrowserManager:
             locator.click(force=True)
 
 @contextmanager
-def get_browser(headless: Optional[bool] = None) -> Generator[BrowserManager, None, None]:
+def get_browser(headless: Optional[bool] = None, engine: Optional[str] = None) -> Generator[BrowserManager, None, None]:
     """Context manager wrapper for clean resource handling."""
-    manager = BrowserManager(headless=headless)
+    manager = BrowserManager(headless=headless, engine=engine)
     try:
         manager.start()
         yield manager
