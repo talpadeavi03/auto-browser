@@ -60,12 +60,20 @@ def login(platform: str):
         # LinkedIn login
         if platform in ("all", "linkedin"):
             console.print("\n[bold yellow]Navigating to LinkedIn Login...[/bold yellow]")
-            page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
+            try:
+                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=20000)
+            except Exception as nav_err:
+                log.warning(f"Redirect loop or navigation issue encountered ({nav_err}). Clearing stale cookies and retrying...")
+                try:
+                    page.context.clear_cookies()
+                except Exception:
+                    pass
+                page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=20000)
             
-            # Auto-fill credentials if provided in env
+            # Auto-fill credentials if real credentials provided in env
             user = os.getenv("LINKEDIN_USERNAME")
             pwd = os.getenv("LINKEDIN_PASSWORD")
-            if user and pwd:
+            if user and pwd and "your_" not in user and "your_" not in pwd and "example" not in user:
                 log.info("Prefilling LinkedIn credentials from environment...")
                 try:
                     page.locator("#username").fill(user)
@@ -85,12 +93,20 @@ def login(platform: str):
         # Naukri login
         if platform in ("all", "naukri"):
             console.print("\n[bold yellow]Navigating to Naukri.com Login...[/bold yellow]")
-            page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded")
+            try:
+                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
+            except Exception as nav_err:
+                log.warning(f"Navigation issue encountered ({nav_err}). Clearing cookies and retrying...")
+                try:
+                    page.context.clear_cookies()
+                except Exception:
+                    pass
+                page.goto(NAUKRI_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
 
-            # Auto-fill credentials if provided in env
+            # Auto-fill credentials if real credentials provided in env
             n_user = os.getenv("NAUKRI_USERNAME")
             n_pwd = os.getenv("NAUKRI_PASSWORD")
-            if n_user and n_pwd:
+            if n_user and n_pwd and "your_" not in n_user and "your_" not in n_pwd and "example" not in n_user:
                 log.info("Prefilling Naukri credentials from environment...")
                 try:
                     page.locator("input[placeholder*='Username' i], input[placeholder*='Email' i]").first.fill(n_user)
