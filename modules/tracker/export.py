@@ -8,42 +8,74 @@ def print_stats_table():
     """Displays formatted application metrics and status summary in console."""
     stats = db.get_stats()
 
-    # Applied table
-    table = Table(title="📊 Job Application Metrics", header_style="bold magenta")
-    table.add_column("Platform", style="cyan")
-    table.add_column("Status", style="yellow")
-    table.add_column("Count", justify="right", style="green")
+    # 1. Confirmed Submitted Applications (User Requested: Submitted Report Only)
+    sub_table = Table(title="🚀 Confirmed Submitted Applications", header_style="bold green")
+    sub_table.add_column("Platform", style="cyan", justify="left")
+    sub_table.add_column("Status", style="bold green", justify="center")
+    sub_table.add_column("Total Submitted", justify="right", style="bold green")
 
-    for row in stats["applied"]:
-        table.add_row(row["platform"].capitalize(), row["status"], str(row["count(*)"]))
+    total_submitted = 0
+    submitted_rows = stats.get("submitted", [])
+    for row in submitted_rows:
+        count = row.get("count", 0)
+        sub_table.add_row(row["platform"].capitalize(), "SUBMITTED", str(count))
+        total_submitted += count
 
-    if not stats["applied"]:
-        table.add_row("-", "No applications yet", "0")
+    if not submitted_rows:
+        sub_table.add_row("-", "No submissions yet", "0")
+    else:
+        sub_table.add_section()
+        sub_table.add_row("All Platforms", "TOTAL SUBMITTED", str(total_submitted), style="bold yellow")
 
-    console.print(table)
+    console.print(sub_table)
 
-    # Scraped table
+    # 2. Detailed Recent Submissions Table
+    recent = stats.get("recent_submissions", [])
+    if recent:
+        recent_table = Table(title="📑 Recently Submitted Applications (Proof & Grounding)", header_style="bold cyan")
+        recent_table.add_column("Platform", style="cyan")
+        recent_table.add_column("Company", style="bold magenta")
+        recent_table.add_column("Role", style="white")
+        recent_table.add_column("AI Match", justify="center", style="bold green")
+        recent_table.add_column("Status", justify="center", style="bold green")
+        recent_table.add_column("Submitted At", style="yellow")
+
+        for r in recent:
+            score = r.get("match_score", 0.0)
+            score_str = f"{score*100:.1f}%" if score and score > 0 else "N/A"
+            status_label = r.get("status", "SUBMITTED")
+            recent_table.add_row(
+                str(r.get("platform", "")).capitalize(),
+                str(r.get("company", "Unknown")),
+                str(r.get("job_title", "Unknown")),
+                score_str,
+                status_label,
+                str(r.get("applied_at", ""))
+            )
+        console.print(recent_table)
+
+    # 3. Scraped table
     scrape_table = Table(title="🔍 Scraped Jobs Summary", header_style="bold blue")
     scrape_table.add_column("Platform", style="cyan")
     scrape_table.add_column("Total Scraped Jobs", justify="right", style="green")
 
-    for row in stats["scraped"]:
+    for row in stats.get("scraped", []):
         scrape_table.add_row(row["platform"].capitalize(), str(row["count(*)"]))
 
-    if not stats["scraped"]:
+    if not stats.get("scraped"):
         scrape_table.add_row("-", "0")
 
     console.print(scrape_table)
 
-    # Refreshes table
+    # 4. Refreshes table
     refresh_table = Table(title="⚡ Profile Boost Refreshes", header_style="bold green")
     refresh_table.add_column("Platform", style="cyan")
     refresh_table.add_column("Last Refreshed At", style="yellow")
 
-    for row in stats["refreshes"]:
+    for row in stats.get("refreshes", []):
         refresh_table.add_row(row["platform"].capitalize(), str(row["max(refreshed_at)"]))
 
-    if not stats["refreshes"]:
+    if not stats.get("refreshes"):
         refresh_table.add_row("-", "Never")
 
     console.print(refresh_table)

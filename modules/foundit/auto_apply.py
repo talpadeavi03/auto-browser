@@ -216,7 +216,7 @@ def run_foundit_auto_apply(page: Page, limit: Optional[int] = None) -> int:
                     job_id=j.get("job_id", ""),
                     match_score=j.get("match_score", 0.0)
                 )
-                if res in ("APPLIED", "APPLIED_PENDING_CONFIRMATION"):
+                if res in ("APPLIED", "SUBMITTED"):
                     applied_count += 1
                 BrowserManager.human_delay(2.5, 4.0)
 

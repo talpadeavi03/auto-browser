@@ -53,8 +53,8 @@ class NotificationService:
                     "avatar_url": "https://raw.githubusercontent.com/talpadeavi03/auto-apply-slm/main/reports/favicon.ico",
                     "embeds": [
                         {
-                            "title": f"🚀 Applied: {job_title} @ {company}",
-                            "color": 0x10B981 if "APPLIED" in status else 0xF59E0B,
+                            "title": f"🚀 Submitted: {job_title} @ {company}",
+                            "color": 0x10B981 if status in ("APPLIED", "SUBMITTED") else 0xF59E0B,
                             "fields": [
                                 {"name": "Candidate", "value": "Avinash Vishnu Talpade (Cloud Engineer)", "inline": True},
                                 {"name": "Platform", "value": platform.capitalize(), "inline": True},

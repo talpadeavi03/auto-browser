@@ -61,27 +61,37 @@ class UniversalATSApplier:
 
                 # F. Check for Submit button
                 submit_selectors = [
+                    "button[type='submit']",
+                    "input[type='submit']",
                     "button:has-text('Submit Application')",
                     "button:has-text('Submit application')",
                     "button:has-text('Submit')",
                     "button:has-text('Send Application')",
-                    "button[type='submit']",
-                    "input[type='submit']",
+                    "button:has-text('Apply Now')",
+                    "button:has-text('Apply now')",
+                    "button:has-text('Review and Submit')",
                     "button:has-text('Complete Application')",
+                    "button[aria-label*='Submit' i]",
+                    "button[data-automation-id='bottom-navigation-submit-button']",
+                    "button[data-qa*='submit']",
+                    "a:has-text('Submit')",
                     "button:has-text('Apply')",
                 ]
                 submit_btn = None
                 for sel in submit_selectors:
-                    cand = page.locator(sel).first
-                    if cand.is_visible(timeout=1000):
-                        t = cand.inner_text().strip().lower()
-                        # Ensure it's not a search or filter button
-                        if any(w in t for w in ["submit", "send", "complete", "apply now"]):
-                            submit_btn = cand
-                            break
-                        elif t == "apply":
-                            submit_btn = cand
-                            break
+                    try:
+                        cand = page.locator(sel).first
+                        if cand.is_visible(timeout=1000):
+                            t = cand.inner_text().strip().lower()
+                            # Ensure it's not a search or filter button
+                            if any(w in t for w in ["submit", "send", "complete", "apply now"]):
+                                submit_btn = cand
+                                break
+                            elif t == "apply":
+                                submit_btn = cand
+                                break
+                    except Exception:
+                        pass
 
                 # G. Check for Next / Continue button if not on final submit
                 next_selectors = [
@@ -95,12 +105,15 @@ class UniversalATSApplier:
                 next_btn = None
                 if not submit_btn:
                     for n_sel in next_selectors:
-                        cand_n = page.locator(n_sel).first
-                        if cand_n.is_visible(timeout=1000):
-                            next_btn = cand_n
-                            break
+                        try:
+                            cand_n = page.locator(n_sel).first
+                            if cand_n.is_visible(timeout=1000):
+                                next_btn = cand_n
+                                break
+                        except Exception:
+                            pass
 
-                if submit_btn and not next_btn:
+                if submit_btn:
                     log.info(f"[green]Final application step reached. Clicking Submit Application for '{company}'...[/green]")
                     
                     # Take snapshot before submission
@@ -136,11 +149,23 @@ class UniversalATSApplier:
             ]
             confirmed = False
             for c_sel in confirmation_selectors:
-                if page.locator(c_sel).first.is_visible(timeout=2500):
-                    confirmed = True
-                    break
+                try:
+                    if page.locator(c_sel).first.is_visible(timeout=2500):
+                        confirmed = True
+                        break
+                except Exception:
+                    pass
 
-            status = "APPLIED" if (submitted or confirmed) else "APPLIED_PENDING_CONFIRMATION"
+            if submitted or confirmed:
+                status = "SUBMITTED"
+                notes = f"Universal ATS Applier automated submission (confirmed={confirmed})"
+            else:
+                status = "FAILED"
+                notes = "Could not locate final submit button or confirm submission on external portal"
+
+            if match_score > 0:
+                notes += f" | AI Match: {match_score*100:.1f}%"
+
             log.info(f"[bold green]✓ External application completed: {job_title} at {company} (Status: {status})[/bold green]")
 
             # Save post-submit screenshot proof
@@ -157,7 +182,7 @@ class UniversalATSApplier:
                 company=company,
                 job_url=job_url,
                 status=status,
-                notes=f"Universal ATS Applier automated submission (confirmed={confirmed}) | AI Match: {match_score*100:.1f}%" if match_score > 0 else f"Universal ATS Applier automated submission (confirmed={confirmed})",
+                notes=notes,
                 match_score=match_score
             )
             return status

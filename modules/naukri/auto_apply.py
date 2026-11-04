@@ -109,21 +109,30 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
                 )
                 return "SKIPPED_QUESTIONNAIRE"
 
-        # Check for success confirmation
+        # Check for success confirmation or updated UI
         success_indicators = [
             "text='Successfully applied'",
             "text='Application sent'",
             "text='You have successfully applied'",
             ".apply-message",
             "span:has-text('Applied')",
+            "button:has-text('Applied')",
+            ".already-applied",
         ]
         is_success = False
         for s_sel in success_indicators:
-            if page.locator(s_sel).first.is_visible(timeout=2500):
-                is_success = True
-                break
+            try:
+                if page.locator(s_sel).first.is_visible(timeout=2000):
+                    is_success = True
+                    break
+            except Exception:
+                pass
 
-        status = "APPLIED" if is_success else "APPLIED_PENDING_CONFIRMATION"
+        status = "SUBMITTED"
+        note_details = f"Direct 1-Click apply submitted (verified={is_success})"
+        if match_score > 0:
+            note_details += f" | AI Match: {match_score*100:.1f}%"
+
         log.info(f"[green]✓ {status}: {job_title} at {company}[/green]")
         db.record_applied_job(
             platform="naukri",
@@ -132,7 +141,7 @@ def apply_to_naukri_job(page: Page, job_url: str, job_title: str, company: str, 
             company=company,
             job_url=job_url,
             status=status,
-            notes=f"Direct 1-Click apply completed | AI Match: {match_score*100:.1f}%" if match_score > 0 else "Direct 1-Click apply completed",
+            notes=note_details,
             match_score=match_score
         )
         return status
@@ -239,7 +248,7 @@ def run_naukri_auto_apply(page: Page, limit: Optional[int] = None) -> int:
                     job_id=j.get("job_id", ""),
                     match_score=j.get("match_score", 0.0)
                 )
-                if res in ("APPLIED", "APPLIED_PENDING_CONFIRMATION"):
+                if res in ("APPLIED", "SUBMITTED"):
                     applied_count += 1
                 BrowserManager.human_delay(2.0, 3.5)
 

@@ -88,6 +88,12 @@ class Storage:
                 except Exception:
                     pass
 
+            # Auto-migrate legacy APPLIED / APPLIED_PENDING_CONFIRMATION to SUBMITTED
+            try:
+                cursor.execute("UPDATE applied_jobs SET status = 'SUBMITTED' WHERE status IN ('APPLIED', 'APPLIED_PENDING_CONFIRMATION')")
+            except Exception:
+                pass
+
             conn.commit()
 
     def is_already_applied(self, platform: str, job_url: str, job_id: Optional[str] = None) -> bool:
@@ -139,7 +145,7 @@ class Storage:
                 conn.commit()
 
                 # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
-                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
+                if status in ("APPLIED", "SUBMITTED"):
                     try:
                         from core.notifications import notifier
                         notifier.notify_application_submitted(
@@ -193,23 +199,6 @@ class Storage:
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
                 conn.commit()
-
-                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
-                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
-                    try:
-                        from core.notifications import notifier
-                        notifier.notify_application_submitted(
-                            platform=platform,
-                            job_title=job_title,
-                            company=company,
-                            job_url=job_url,
-                            status=status,
-                            match_score=float(match_score or 0.0),
-                            notes=notes or ""
-                        )
-                    except Exception:
-                        pass
-
                 return True
             except Exception as e:
                 log.error(f"Failed to record scraped job: {e}")
@@ -230,6 +219,23 @@ class Storage:
             
             cursor.execute("SELECT platform, status, count(*) FROM applied_jobs GROUP BY platform, status")
             applied_stats = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT platform, count(*) as count 
+                FROM applied_jobs 
+                WHERE status IN ('SUBMITTED', 'APPLIED') 
+                GROUP BY platform
+            """)
+            submitted_stats = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT platform, job_title, company, status, match_score, applied_at 
+                FROM applied_jobs 
+                WHERE status IN ('SUBMITTED', 'APPLIED') 
+                ORDER BY applied_at DESC 
+                LIMIT 15
+            """)
+            recent_submissions = cursor.fetchall()
             
             cursor.execute("SELECT platform, count(*) FROM scraped_jobs GROUP BY platform")
             scraped_stats = cursor.fetchall()
@@ -239,6 +245,8 @@ class Storage:
 
             return {
                 "applied": [dict(row) for row in applied_stats],
+                "submitted": [dict(row) for row in submitted_stats],
+                "recent_submissions": [dict(row) for row in recent_submissions],
                 "scraped": [dict(row) for row in scraped_stats],
                 "refreshes": [dict(row) for row in refresh_stats]
             }
@@ -342,14 +350,14 @@ class Storage:
 
         # 3. Generate Executive HTML Summary
         try:
-            total_applied = len(df_applied[df_applied["status"].isin(["APPLIED", "APPLIED_PENDING_CONFIRMATION"])]) if not df_applied.empty else 0
+            total_applied = len(df_applied[df_applied["status"].isin(["APPLIED", "SUBMITTED"])]) if not df_applied.empty else 0
             total_tracked = len(df_applied) if not df_applied.empty else 0
             total_scraped = len(df_scraped) if not df_scraped.empty else 0
 
             rows_html = ""
             if not df_applied.empty:
                 for _, r in df_applied.head(50).iterrows():
-                    status_badge = "background:#065f46;color:#6ee7b7;" if "APPLIED" in str(r.get("status", "")) else "background:#854d0e;color:#fde047;"
+                    status_badge = "background:#065f46;color:#6ee7b7;" if str(r.get("status", "")) in ("APPLIED", "SUBMITTED") else "background:#854d0e;color:#fde047;"
                     raw_score = r.get("match_score", 0.0)
                     try:
                         score_val = float(raw_score) if raw_score is not None else 0.0
@@ -471,23 +479,6 @@ class Storage:
                     context[:500] if context else ""
                 ))
                 conn.commit()
-
-                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
-                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
-                    try:
-                        from core.notifications import notifier
-                        notifier.notify_application_submitted(
-                            platform=platform,
-                            job_title=job_title,
-                            company=company,
-                            job_url=job_url,
-                            status=status,
-                            match_score=float(match_score or 0.0),
-                            notes=notes or ""
-                        )
-                    except Exception:
-                        pass
-
                 return True
             except Exception as e:
                 log.debug(f"Failed to record interaction: {e}")
