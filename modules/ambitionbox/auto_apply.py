@@ -119,11 +119,11 @@ def apply_to_ambitionbox_job(page: Page, job_url: str, job_title: str, company: 
             job_title=job_title,
             company=company,
             job_url=job_url,
-            status="APPLIED",
+            status="SUBMITTED",
             notes="Completed AmbitionBox apply",
             match_score=match_score
         )
-        return "APPLIED"
+        return "SUBMITTED"
 
     except Exception as e:
         log.error(f"[red]Error applying to AmbitionBox job '{job_title}': {e}[/red]")

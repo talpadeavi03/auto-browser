@@ -245,13 +245,71 @@ def auto_login_linkedin(page: Page) -> bool:
 
 def auto_login_naukri(page: Page) -> bool:
     """
-    Autonomously logs into Naukri.com using Google OAuth or direct credentials.
+    Autonomously logs into Naukri.com using direct credentials or Google OAuth.
+    Prioritizes direct credentials if available in environment secrets.
     """
-    try:
-        page.goto("https://www.naukri.com/nlogin/login", timeout=30000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(1.5, 2.5)
+    user = os.getenv("NAUKRI_USERNAME")
+    pwd = os.getenv("NAUKRI_PASSWORD")
+    has_creds = bool(user and pwd and "example.com" not in user and "your_" not in user and "your_" not in pwd)
 
-        # 1. Try Google Sign-In first (Naukri socialbtn google)
+    # 1. Try Direct Credentials First if configured (fastest, most deterministic in cloud)
+    if has_creds:
+        log.info(f"[cyan]Attempting autonomous Naukri credential login for: {user}...[/cyan]")
+        try:
+            if "nlogin/login" not in page.url.lower():
+                page.goto("https://www.naukri.com/nlogin/login", timeout=30000, wait_until="domcontentloaded")
+                BrowserManager.human_delay(1.5, 2.5)
+
+            user_input = page.locator("#usernameField, input[placeholder*='Username'], input[placeholder*='Email'], input[name*='email' i]").first
+            if user_input.is_visible(timeout=6000):
+                log.info("Typing Naukri username into form...")
+                BrowserManager.human_type(user_input, user)
+                BrowserManager.human_delay(0.5, 1.2)
+
+                pwd_input = page.locator("#passwordField, input[placeholder*='password'], input[type='password']").first
+                if pwd_input.is_visible(timeout=5000):
+                    log.info("Typing Naukri password into form...")
+                    BrowserManager.human_type(pwd_input, pwd)
+                    BrowserManager.human_delay(0.8, 1.5)
+
+                    submit_btn = page.locator("button[type='submit'], button:has-text('Login')").first
+                    if submit_btn.is_visible():
+                        submit_btn.click()
+                    else:
+                        pwd_input.press("Enter")
+
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=15000)
+                    except Exception:
+                        pass
+                    BrowserManager.human_delay(3.0, 5.0)
+
+                    current_url = page.url.lower()
+                    if any(x in current_url for x in ["/mnjuser", "/homepage", "/my-naukri"]) and "nlogin" not in current_url:
+                        log.info("[bold green]✓ Naukri autonomous credential login successful![/bold green]")
+                        persist_session_cookies(page)
+                        return True
+
+                    if page.locator(".profile-name, .nI-gNb-drawer, .view-profile-wrapper").first.is_visible(timeout=3000):
+                        log.info("[bold green]✓ Naukri autonomous credential login verified by profile element![/bold green]")
+                        persist_session_cookies(page)
+                        return True
+
+                    err_elem = page.locator(".server-err, .error-message, [class*='error' i]").first
+                    if err_elem.is_visible(timeout=1000):
+                        log.error(f"[red]Naukri rejected credentials: {err_elem.inner_text().strip()}[/red]")
+            else:
+                log.warning("Could not find visible Naukri username/email input field on login page.")
+        except Exception as e:
+            log.warning(f"Naukri direct login attempt note: {e}")
+
+    # 2. Fallback to Google OAuth
+    log.info("Checking for Google Sign-In on Naukri login page...")
+    try:
+        if "nlogin/login" not in page.url.lower():
+            page.goto("https://www.naukri.com/nlogin/login", timeout=30000, wait_until="domcontentloaded")
+            BrowserManager.human_delay(1.5, 2.5)
+
         if login_with_google(page, DEFAULT_GOOGLE_ACCOUNT):
             current_url = page.url.lower()
             if any(x in current_url for x in ["/mnjuser", "/homepage", "/my-naukri"]) and "nlogin" not in current_url:
@@ -265,51 +323,4 @@ def auto_login_naukri(page: Page) -> bool:
     except Exception as g_err:
         log.debug(f"Naukri Google login attempt note: {g_err}")
 
-    # 2. Fallback to direct credentials
-    user = os.getenv("NAUKRI_USERNAME")
-    pwd = os.getenv("NAUKRI_PASSWORD")
-
-    if not user or not pwd or "example.com" in user or "your_" in user or "your_" in pwd:
-        log.debug("Naukri real credentials not set in .env (contains template placeholder).")
-        return False
-
-    log.info(f"[cyan]Attempting autonomous Naukri credential login for: {user}...[/cyan]")
-    try:
-        page.goto("https://www.naukri.com/nlogin/login", timeout=30000, wait_until="domcontentloaded")
-        BrowserManager.human_delay(1.5, 2.5)
-
-        user_input = page.locator("#usernameField, input[placeholder*='Username'], input[placeholder*='Email']").first
-        if not user_input.is_visible(timeout=5000):
-            return False
-
-        BrowserManager.human_type(user_input, user)
-        BrowserManager.human_delay(0.5, 1.2)
-
-        pwd_input = page.locator("#passwordField, input[placeholder*='password'], input[type='password']").first
-        if not pwd_input.is_visible(timeout=5000):
-            return False
-
-        BrowserManager.human_type(pwd_input, pwd)
-        BrowserManager.human_delay(0.8, 1.5)
-
-        submit_btn = page.locator("button[type='submit'], button:has-text('Login')").first
-        submit_btn.click()
-
-        page.wait_for_load_state("domcontentloaded", timeout=20000)
-        BrowserManager.human_delay(3.0, 5.0)
-
-        current_url = page.url.lower()
-        if any(x in current_url for x in ["/mnjuser", "/homepage", "/my-naukri"]) and "nlogin" not in current_url:
-            log.info("[bold green]✓ Naukri autonomous login successful![/bold green]")
-            persist_session_cookies(page)
-            return True
-
-        if page.locator(".profile-name, .nI-gNb-drawer, .view-profile-wrapper").first.is_visible(timeout=3000):
-            log.info("[bold green]✓ Naukri autonomous login verified by profile element![/bold green]")
-            persist_session_cookies(page)
-            return True
-
-        return False
-    except Exception as e:
-        log.error(f"Error during autonomous Naukri login: {e}")
-        return False
+    return False

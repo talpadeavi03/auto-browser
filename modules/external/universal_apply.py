@@ -44,22 +44,34 @@ class UniversalATSApplier:
                 page_index += 1
                 BrowserManager.human_delay(1.5, 2.5)
 
-                # A. Upload Resume
-                cls._upload_resume(page)
+                # Collect page and any embedded ATS frames (e.g., Greenhouse, Lever, Workday embed)
+                contexts = [page]
+                for f in page.frames:
+                    if f != page.main_frame and not f.is_detached:
+                        f_url = f.url.lower()
+                        if any(k in f_url for k in ["greenhouse", "lever", "workday", "bamboohr", "smartrecruiters", "jobvite", "ashby", "apply"]):
+                            contexts.append(f)
 
-                # B. Fill text, numbers, email, phone, links, education, experience
-                cls._fill_inputs(page)
+                for ctx in contexts:
+                    try:
+                        # A. Upload Resume
+                        cls._upload_resume(ctx)
 
-                # C. Handle dropdowns / selects
-                cls._fill_selects(page)
+                        # B. Fill text, numbers, email, phone, links, education, experience
+                        cls._fill_inputs(ctx)
 
-                # D. Handle radio groups and consent checkboxes
-                cls._fill_radios_and_checkboxes(page)
+                        # C. Handle dropdowns / selects
+                        cls._fill_selects(ctx)
+
+                        # D. Handle radio groups and consent checkboxes
+                        cls._fill_radios_and_checkboxes(ctx)
+                    except Exception as ctx_err:
+                        log.debug(f"Context processing note: {ctx_err}")
 
                 # E. Solve image/text Captcha if present
                 cls._solve_captcha_if_present(page)
 
-                # F. Check for Submit button
+                # F. Check for Submit button across contexts
                 submit_selectors = [
                     "button[type='submit']",
                     "input[type='submit']",
@@ -78,20 +90,22 @@ class UniversalATSApplier:
                     "button:has-text('Apply')",
                 ]
                 submit_btn = None
-                for sel in submit_selectors:
-                    try:
-                        cand = page.locator(sel).first
-                        if cand.is_visible(timeout=1000):
-                            t = cand.inner_text().strip().lower()
-                            # Ensure it's not a search or filter button
-                            if any(w in t for w in ["submit", "send", "complete", "apply now"]):
-                                submit_btn = cand
-                                break
-                            elif t == "apply":
-                                submit_btn = cand
-                                break
-                    except Exception:
-                        pass
+                for ctx in contexts:
+                    for sel in submit_selectors:
+                        try:
+                            cand = ctx.locator(sel).first
+                            if cand.is_visible(timeout=800):
+                                t = cand.inner_text().strip().lower()
+                                if any(w in t for w in ["submit", "send", "complete", "apply now"]):
+                                    submit_btn = cand
+                                    break
+                                elif t == "apply":
+                                    submit_btn = cand
+                                    break
+                        except Exception:
+                            pass
+                    if submit_btn:
+                        break
 
                 # G. Check for Next / Continue button if not on final submit
                 next_selectors = [
@@ -104,14 +118,17 @@ class UniversalATSApplier:
                 ]
                 next_btn = None
                 if not submit_btn:
-                    for n_sel in next_selectors:
-                        try:
-                            cand_n = page.locator(n_sel).first
-                            if cand_n.is_visible(timeout=1000):
-                                next_btn = cand_n
-                                break
-                        except Exception:
-                            pass
+                    for ctx in contexts:
+                        for n_sel in next_selectors:
+                            try:
+                                cand_n = ctx.locator(n_sel).first
+                                if cand_n.is_visible(timeout=800):
+                                    next_btn = cand_n
+                                    break
+                            except Exception:
+                                pass
+                        if next_btn:
+                            break
 
                 if submit_btn:
                     log.info(f"[green]Final application step reached. Clicking Submit Application for '{company}'...[/green]")
@@ -134,7 +151,6 @@ class UniversalATSApplier:
                     BrowserManager.safe_click(next_btn)
                     continue
 
-                # If neither submit nor next button found, form might be completed or submitted
                 break
 
             # Step 3: Verify confirmation indicators
@@ -145,6 +161,15 @@ class UniversalATSApplier:
                 "text='Application received'",
                 "text='Thanks for applying'",
                 "text='Successfully applied'",
+                "text='We received your application'",
+                "text='Application submitted successfully'",
+                "text='Thank you for your interest'",
+                "text='Your application has been received'",
+                "text='Application Complete'",
+                "text='Application successfully submitted'",
+                ".application-submitted",
+                ".submission-success",
+                "[data-qa='application-success']",
                 "div[class*='success' i]",
             ]
             confirmed = False
@@ -157,7 +182,7 @@ class UniversalATSApplier:
                     pass
 
             current_url = page.url.lower()
-            url_confirmed = any(k in current_url for k in ["/success", "/thank", "/confirm", "/applied", "/completed", "/submitted"])
+            url_confirmed = any(k in current_url for k in ["/success", "/thank", "/confirm", "/applied", "/completed", "/submitted", "/done"])
 
             if confirmed or url_confirmed:
                 status = "SUBMITTED"
@@ -229,13 +254,19 @@ class UniversalATSApplier:
                 break
 
     @classmethod
-    def _upload_resume(cls, page: Page):
+    def _upload_resume(cls, context):
         """Attaches the candidate's PDF resume to any file upload inputs."""
-        resume_file = Path(settings.profile.resume_path)
-        if not resume_file.exists():
+        resume_candidates = [
+            Path(settings.profile.resume_path),
+            Path("data/resumes/AT_26_AI.pdf"),
+            Path("data/resumes/resume.pdf"),
+            Path("resume.pdf"),
+        ]
+        resume_file = next((p for p in resume_candidates if p.exists() and p.is_file()), None)
+        if not resume_file:
             return
 
-        file_inputs = page.locator("input[type='file']").all()
+        file_inputs = context.locator("input[type='file']").all()
         for f_inp in file_inputs:
             try:
                 f_inp.set_input_files(str(resume_file))

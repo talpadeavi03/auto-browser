@@ -73,13 +73,13 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
                         BrowserManager.safe_click(ext_apply)
                     ext_page = new_page_info.value
                     ext_page.wait_for_load_state("domcontentloaded")
-                    res = UniversalATSApplier.apply(ext_page, ext_page.url, job_title, company, job_id)
+                    res = UniversalATSApplier.apply(ext_page, ext_page.url, job_title, company, job_id, match_score=match_score)
                     ext_page.close()
                     return res
                 except Exception as ext_err:
                     log.warning(f"Could not open external page ({ext_err}). Trying in current tab...")
                     ext_url = ext_apply.get_attribute("href") or page.url
-                    return UniversalATSApplier.apply(page, ext_url, job_title, company, job_id)
+                    return UniversalATSApplier.apply(page, ext_url, job_title, company, job_id, match_score=match_score)
 
             log.info(f"No Apply button available for {job_title}.")
             db.record_applied_job(
@@ -405,8 +405,14 @@ def fill_current_step_fields(page: Page, modal: Locator):
         # 4. Resume upload if required and file input exists
         file_input = modal.locator("input[type='file']").first
         if file_input.is_visible() or file_input.count() > 0:
-            resume_file = Path(settings.profile.resume_path)
-            if resume_file.exists():
+            resume_candidates = [
+                Path(settings.profile.resume_path),
+                Path("data/resumes/AT_26_AI.pdf"),
+                Path("data/resumes/resume.pdf"),
+                Path("resume.pdf"),
+            ]
+            resume_file = next((p for p in resume_candidates if p.exists() and p.is_file()), None)
+            if resume_file:
                 try:
                     file_input.set_input_files(str(resume_file))
                     BrowserManager.human_delay(1.5, 2.5)
@@ -468,6 +474,16 @@ def dismiss_modal(page: Page, modal: Optional[Locator] = None):
 
 def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
     """Scrapes matching LinkedIn jobs and applies via Easy Apply up to the limit."""
+    import time
+    from modules.linkedin.scraper import is_linkedin_logged_in
+    from core.auto_auth import auto_login_linkedin
+
+    if not is_linkedin_logged_in(page, navigate=True):
+        log.warning("LinkedIn session is not actively authenticated. Attempting auto-login...")
+        if not auto_login_linkedin(page):
+            log.error("[bold red]❌ Cannot auto-apply on LinkedIn: session is not authenticated. Please configure LINKEDIN_LI_AT or credentials in GitHub Secrets.[/bold red]")
+            return 0
+
     max_apps = limit or settings.linkedin.max_applications_per_run
     max_inspected = max(max_apps * 3, 12)
     max_runtime_sec = 300 # 5 minutes hard safety timeout
@@ -508,7 +524,7 @@ def run_linkedin_easy_apply(page: Page, limit: Optional[int] = None) -> int:
                     job_id=j.get("job_id", ""),
                     match_score=j.get("match_score", 0.0)
                 )
-                if res == "APPLIED":
+                if res in ("APPLIED", "SUBMITTED"):
                     applied_count += 1
                 BrowserManager.human_delay(2.5, 4.0)
 

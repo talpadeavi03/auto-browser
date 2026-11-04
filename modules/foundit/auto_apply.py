@@ -151,11 +151,11 @@ def apply_to_foundit_job(page: Page, job_url: str, job_title: str, company: str,
             job_title=job_title,
             company=company,
             job_url=job_url,
-            status="APPLIED",
+            status="SUBMITTED",
             notes="Completed Foundit Apply flow",
             match_score=match_score
         )
-        return "APPLIED"
+        return "SUBMITTED"
 
     except Exception as e:
         log.error(f"[red]Error applying to Foundit job '{job_title}': {e}[/red]")

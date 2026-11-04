@@ -203,12 +203,28 @@ flowchart LR
 
 ### Level 1: Novice — 60-Second Cloud Setup ($0 Spend)
 1. Ensure you are on branch **`2.0`** (`git checkout 2.0`).
-2. In GitHub, navigate to **Settings ➔ Secrets and variables ➔ Actions** and add your core secrets:
-   - `GEMINI_API_KEY`: Free Gemini API Key from [aistudio.google.com](https://aistudio.google.com/).
-   - `LINKEDIN_LI_AT`: Your LinkedIn `li_at` cookie value (found in browser cookies under `linkedin.com`).
-   - `NAUKRI_USERNAME` & `NAUKRI_PASSWORD`: Your login credentials for Naukri.com.
+2. In GitHub, navigate to **Settings ➔ Secrets and variables ➔ Actions** and add your secrets:
+
+| Secret Name | Purpose & Source | Required? |
+| :--- | :--- | :--- |
+| `DISCORD_WEBHOOK_URL` | Discord Channel Webhook for instant verified submission alerts | **Mandatory** |
+| `GEMINI_API_KEY` | Free Google Gemini API Key from [aistudio.google.com](https://aistudio.google.com/) | **Mandatory** |
+| `NAUKRI_USERNAME` | Your Naukri email / phone number | **Recommended** |
+| `NAUKRI_PASSWORD` | Your Naukri account password (enables 100% autonomous headless login) | **Recommended** |
+| `LINKEDIN_LI_AT` | Your LinkedIn `li_at` cookie value (from browser devtools ➔ Application ➔ Cookies ➔ `li_at`) | **Recommended** |
+| `NAUKRI_AUTH_COOKIE` | *(Optional)* Naukri `nauk_at` cookie value (alternative to username/password) | Optional |
+| `AUTH_STORAGE_STATE` | *(Optional)* Complete multi-platform JSON cookie state from `data/auth_secret_for_github.txt` | Optional |
+
+> [!NOTE]
+> **Can we just add all platform credentials to GitHub Secrets?**
+> **YES!** Simply adding `NAUKRI_USERNAME`, `NAUKRI_PASSWORD`, and `LINKEDIN_LI_AT` (plus `DISCORD_WEBHOOK_URL` and `GEMINI_API_KEY`) to GitHub Secrets allows the cloud runner to operate 100% autonomously without ever needing to run a local browser or solve login screens manually!
+
 3. Switch your repository's Default Branch to **`2.0`** in GitHub Settings (General ➔ Default branch ➔ Switch to `2.0`).
-4. That's it! GitHub Actions will now automatically run all platforms every 2 hours.
+4. That's it! GitHub Actions will now automatically run all platforms every 2 hours and execute genuine submissions across all 3 pathways:
+   - **Pathway 1 (Direct 1-Click / Easy Apply)**: Direct button click and instant confirmation.
+   - **Pathway 2 (Screening Chatbots & Multi-Turn Questionnaires)**: Conversational AI chip selection (notice period, experience, salary, Yes/No) and numeric/text inputs.
+   - **Pathway 3 (External ATS Links)**: Autonomous multi-step wizard navigation (Workday, Greenhouse, Lever, BambooHR, Keka, etc.) with resume attachment.
+   - **Zero False Positives**: Discord alerts are dispatched **strictly and solely** when server-side confirmation is verified.
 
 ---
 

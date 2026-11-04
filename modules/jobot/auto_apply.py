@@ -163,11 +163,11 @@ def apply_to_jobot_job(page: Page, job_url: str, job_title: str, company: str, j
                 job_title=job_title,
                 company=company,
                 job_url=job_url,
-                status="APPLIED",
+                status="SUBMITTED",
                 notes="Completed Jobot application",
                 match_score=match_score
             )
-            return "APPLIED"
+            return "SUBMITTED"
 
         # Check if external redirect occurred
         if "jobot.com" not in page.url:

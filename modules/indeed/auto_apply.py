@@ -202,11 +202,11 @@ def apply_to_indeed_job(page: Page, job_url: str, job_title: str, company: str, 
                     job_title=job_title,
                     company=company,
                     job_url=job_url,
-                    status="APPLIED",
+                    status="SUBMITTED",
                     notes="Completed Indeed Apply flow",
                     match_score=match_score
                 )
-                return "APPLIED"
+                return "SUBMITTED"
 
             # 6. Check for Next / Continue / Review button
             next_selectors = [
@@ -239,11 +239,11 @@ def apply_to_indeed_job(page: Page, job_url: str, job_title: str, company: str, 
                 job_title=job_title,
                 company=company,
                 job_url=job_url,
-                status="APPLIED",
+                status="SUBMITTED",
                 notes="Indeed application confirmed",
                 match_score=match_score
             )
-            return "APPLIED"
+            return "SUBMITTED"
 
         log.warning(f"Could not complete Indeed application for {job_title}.")
         db.record_applied_job(
