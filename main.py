@@ -32,6 +32,8 @@ from modules.jobot.auto_apply import run_jobot_auto_apply
 from modules.external.universal_apply import UniversalATSApplier
 from modules.tracker.export import print_stats_table, export_reports
 from core.auto_auth import auto_login_linkedin, auto_login_naukri, persist_session_cookies
+from modules.gmail.auto_apply import scan_gmail_job_alerts, apply_from_gmail_alerts
+from core.notifications import notifier
 
 @click.group()
 def cli():
@@ -240,12 +242,51 @@ def jobot_apply_cmd(limit: int, headless: bool):
         run_jobot_auto_apply(page, limit=limit)
         print_stats_table()
 
+@cli.command("gmail-scan")
+@click.option("--limit", default=20, type=int, help="Max unread emails to scan")
+def gmail_scan_cmd(limit: int):
+    """Scan candidate Gmail inbox for incoming job alerts and recruiter links."""
+    from rich.table import Table
+    console.print(Panel.fit("[bold cyan]Scanning Gmail Inbox for Job Alerts & Opportunities[/bold cyan]"))
+    jobs = scan_gmail_job_alerts(max_emails=limit)
+    if jobs:
+        table = Table(title="[bold green]Discovered Gmail Job Alerts[/bold green]")
+        table.add_column("Company", style="cyan")
+        table.add_column("Role", style="magenta")
+        table.add_column("AI Match", style="yellow")
+        table.add_column("Application Link", style="green")
+        for j in jobs:
+            table.add_row(
+                j.get("company", "Company"),
+                j.get("role", "Role"),
+                f"{j.get('match_score', 0.0)*100:.1f}%",
+                str(j.get("apply_url", "N/A"))[:55] + "..."
+            )
+        console.print(table)
+    else:
+        console.print("[yellow]No actionable job alerts found in recent unread emails.[/yellow]")
+
+@cli.command("gmail-apply")
+@click.option("--limit", default=5, type=int, help="Max Gmail alerts to apply to")
+@click.option("--headless/--no-headless", default=None, help="Run in headless mode")
+def gmail_apply_cmd(limit: int, headless: bool):
+    """Auto-apply to jobs found in Gmail alert notifications via Universal ATS."""
+    apply_from_gmail_alerts(max_applications=limit, headless=headless)
+    print_stats_table()
+
+@cli.command("slm-train")
+def slm_train_cmd():
+    """Fine-tune the local/cloud SLM on cumulative screening Q&A interactions."""
+    console.print(Panel.fit("[bold cyan]Launching Cloud SLM Fine-Tuning Pipeline[/bold cyan]"))
+    from slm.train_cloud import train
+    train()
+
 @cli.command("apply")
-@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri", "indeed", "glassdoor", "foundit", "ambitionbox", "jobot"]), default="all", help="Target platform to apply on")
+@click.option("--platform", type=click.Choice(["all", "linkedin", "naukri", "indeed", "glassdoor", "foundit", "ambitionbox", "jobot", "gmail"]), default="all", help="Target platform to apply on")
 @click.option("--limit", default=5, type=int, help="Max jobs to apply to per platform")
 @click.option("--headless/--no-headless", default=None, help="Run in headless mode")
 def apply_cmd(platform: str, limit: int, headless: bool):
-    """Auto-apply to jobs on LinkedIn, Naukri, Indeed, Glassdoor, Foundit, AmbitionBox, or Jobot."""
+    """Auto-apply to jobs on LinkedIn, Naukri, Indeed, Glassdoor, Foundit, AmbitionBox, Jobot, or Gmail alerts."""
     console.print(Panel.fit(f"[bold cyan]Starting AI Auto-Apply on {platform.upper()} (Limit: {limit})[/bold cyan]"))
     with get_browser(headless=headless) as browser:
         page = browser.new_page()
@@ -298,6 +339,13 @@ def apply_cmd(platform: str, limit: int, headless: bool):
                 run_jobot_auto_apply(page, limit=limit)
             except Exception as e:
                 log.error(f"Jobot apply failed: {e}")
+
+    if platform in ("all", "gmail"):
+        console.print("\n[bold cyan]Targeting Gmail Job Alerts Auto-Apply...[/bold cyan]")
+        try:
+            apply_from_gmail_alerts(max_applications=limit, headless=headless)
+        except Exception as e:
+            log.error(f"Gmail apply step failed: {e}")
 
     print_stats_table()
     export_reports()
@@ -457,10 +505,28 @@ def run_all(limit: int, headless: bool):
         except Exception as e:
             log.error(f"Jobot apply step failed: {e}")
 
-    # Step 9: Summary & Export
-    console.print("\n[bold cyan]Step 9: Generating Multi-Platform Metrics & Reports...[/bold cyan]")
+    # Step 9: Gmail Ingestion & Alert Auto-Apply
+    console.print("\n[bold cyan]Step 9: Scanning & Applying to Inbound Gmail Job Alerts...[/bold cyan]")
+    try:
+        apply_from_gmail_alerts(max_applications=limit, headless=headless)
+    except Exception as e:
+        log.error(f"Gmail apply step failed: {e}")
+
+    # Step 10: Summary, Real-Time Notifications & Export
+    console.print("\n[bold cyan]Step 10: Generating Multi-Platform Metrics, Notifications & Reports...[/bold cyan]")
     print_stats_table()
     export_reports()
+
+    # Dispatch summary alert to Discord / Telegram if configured
+    try:
+        notifier.notify_summary(
+            applied_count=db.get_total_applied_count(),
+            inspected_count=db.get_total_scraped_count(),
+            boosted=["Naukri", "LinkedIn"]
+        )
+    except Exception:
+        pass
+
     console.print("\n[bold green]✓ Complete Multi-Platform RPA Workflow finished successfully![/bold green]")
 
 @cli.command("export-auth")
@@ -561,7 +627,16 @@ def verify():
     console.print(f"  Sample Job: [cyan]'{sample_job['job_title']}'[/cyan] at [cyan]'{sample_job['company']}'[/cyan]")
     console.print(f"  Compatibility Score: [bold green]{score * 100:.1f}% match[/bold green] (via {settings.models.reranker})\n")
 
-    # 3. Live Benchmark Q&A Test
+    # 4. Cloud Ingestion & Notifications
+    console.print("\n[bold white]Cloud Ingestion & Notification Channels:[/bold white]")
+    gmail_pass = bool(os.getenv("GMAIL_APP_PASSWORD", "").strip())
+    gmail_user = os.getenv("GMAIL_USER") or "talpadeavi0303@gmail.com"
+    console.print(f"  • Gmail IMAP Alerts Reader: {'[bold green]Ready (' + gmail_user + ')[/bold green]' if gmail_pass else '[bold yellow]Unset (set GMAIL_APP_PASSWORD secret to enable)[/bold yellow]'}")
+    console.print(f"  • Discord Notifications: {'[bold green]Active[/bold green]' if notifier.is_discord_enabled else '[dim]Disabled (DISCORD_WEBHOOK_URL unset)[/dim]'}")
+    console.print(f"  • Telegram Notifications: {'[bold green]Active[/bold green]' if notifier.is_telegram_enabled else '[dim]Disabled (TELEGRAM_BOT_TOKEN unset)[/dim]'}")
+    console.print(f"  • Free Cloud SLM Training Pipeline: [bold green]slm/train_cloud.py (Kaggle/Colab Ready)[/bold green]")
+
+    # 5. Live Benchmark Q&A Test
     console.print("\n[bold white]Running Live Screening Q&A Test:[/bold white]")
     benchmarks = [
         ("Which AWS certification do you have?", "text", None),

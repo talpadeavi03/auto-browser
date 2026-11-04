@@ -24,6 +24,7 @@ on:
           - 'foundit-apply'
           - 'ambitionbox-apply'
           - 'jobot-apply'
+          - 'gmail-apply'
           - 'scrape-jobs'
           - 'verify'
 
@@ -163,6 +164,11 @@ jobs:
           LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
           NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER || 'talpadeavi0303@gmail.com' }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           echo "Trigger event: ${{ github.event_name }}"
           ACTION="${{ inputs.action }}"
@@ -178,8 +184,9 @@ jobs:
             xvfb-run -a python main.py foundit-apply --limit 5 || true
             xvfb-run -a python main.py ambitionbox-apply --limit 5 || true
             xvfb-run -a python main.py jobot-apply --limit 5 || true
+            xvfb-run -a python main.py gmail-apply --limit 5 || true
           elif [ "$ACTION" = "run-all" ]; then
-            echo "🚀 Running complete Multi-Platform RPA sequence (Naukri, LinkedIn, Indeed, Glassdoor, Foundit, AmbitionBox, Jobot)..."
+            echo "🚀 Running complete Multi-Platform RPA sequence (Naukri, LinkedIn, Indeed, Glassdoor, Foundit, AmbitionBox, Jobot, Gmail Alerts)..."
             xvfb-run -a python main.py run-all --limit 5 || true
           elif [ "$ACTION" = "naukri-boost" ]; then
             xvfb-run -a python main.py naukri-refresh
@@ -199,6 +206,8 @@ jobs:
             xvfb-run -a python main.py ambitionbox-apply --limit 10
           elif [ "$ACTION" = "jobot-apply" ]; then
             xvfb-run -a python main.py jobot-apply --limit 10
+          elif [ "$ACTION" = "gmail-apply" ]; then
+            xvfb-run -a python main.py gmail-apply --limit 10
           elif [ "$ACTION" = "scrape-jobs" ]; then
             xvfb-run -a python main.py scrape --platform all
           elif [ "$ACTION" = "verify" ]; then

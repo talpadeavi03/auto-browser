@@ -137,6 +137,23 @@ class Storage:
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
                 conn.commit()
+
+                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
+                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
+                    try:
+                        from core.notifications import notifier
+                        notifier.notify_application_submitted(
+                            platform=platform,
+                            job_title=job_title,
+                            company=company,
+                            job_url=job_url,
+                            status=status,
+                            match_score=float(match_score or 0.0),
+                            notes=notes or ""
+                        )
+                    except Exception:
+                        pass
+
                 return True
             except Exception as e:
                 log.error(f"Failed to record applied job: {e}")
@@ -176,6 +193,23 @@ class Storage:
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
                 conn.commit()
+
+                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
+                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
+                    try:
+                        from core.notifications import notifier
+                        notifier.notify_application_submitted(
+                            platform=platform,
+                            job_title=job_title,
+                            company=company,
+                            job_url=job_url,
+                            status=status,
+                            match_score=float(match_score or 0.0),
+                            notes=notes or ""
+                        )
+                    except Exception:
+                        pass
+
                 return True
             except Exception as e:
                 log.error(f"Failed to record scraped job: {e}")
@@ -437,6 +471,23 @@ class Storage:
                     context[:500] if context else ""
                 ))
                 conn.commit()
+
+                # Dispatch real-time cloud notifications (Discord / Telegram) if submitted
+                if status in ("APPLIED", "APPLIED_PENDING_CONFIRMATION", "SUBMITTED"):
+                    try:
+                        from core.notifications import notifier
+                        notifier.notify_application_submitted(
+                            platform=platform,
+                            job_title=job_title,
+                            company=company,
+                            job_url=job_url,
+                            status=status,
+                            match_score=float(match_score or 0.0),
+                            notes=notes or ""
+                        )
+                    except Exception:
+                        pass
+
                 return True
             except Exception as e:
                 log.debug(f"Failed to record interaction: {e}")
