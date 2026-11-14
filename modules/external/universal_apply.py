@@ -578,6 +578,16 @@ class UniversalATSApplier:
             legend = fs.locator("legend").first
             prompt_text = legend.inner_text().strip() if legend.is_visible() else fs_text.split("\n")[0]
 
+            # Resume selection / attachment radio group
+            if any(w in fs_text for w in ["resume", "curriculum vitae", "attach cv", "upload resume", "cv"]):
+                first_opt = fs.locator("input[type='radio'], label, [role='radio']").first
+                if first_opt.is_visible():
+                    try:
+                        first_opt.click()
+                    except Exception:
+                        pass
+                continue
+
             # Authorization to work
             if any(w in fs_text for w in ["authorized", "legally permitted", "right to work"]):
                 cls._select_radio_choice(fs, "yes" if settings.profile.authorized_to_work else "no")
@@ -592,10 +602,16 @@ class UniversalATSApplier:
                 cls._select_radio_choice(fs, "yes")
             # Gemini AI selection for complex radio queries
             elif ai_assistant.is_active:
-                options = [lbl.inner_text().strip() for lbl in fs.locator("label").all() if lbl.is_visible()]
+                # Sanitize prompt text: ignore file extensions or empty legends
+                clean_prompt = prompt_text.strip()
+                if len(clean_prompt) < 4 or clean_prompt.lower() in ["pdf", "doc", "docx", "file", "upload", "attachment", "yes", "no"]:
+                    continue
+
+                options = [lbl.inner_text().strip() for lbl in fs.locator("label, [role='radio']").all() if lbl.is_visible() and len(lbl.inner_text().strip()) >= 2]
                 if options:
-                    choice = ai_assistant.answer_question(prompt_text, field_type="radio", options=options)
-                    cls._select_radio_choice(fs, choice)
+                    choice = ai_assistant.answer_question(clean_prompt, field_type="radio", options=options)
+                    if choice:
+                        cls._select_radio_choice(fs, choice)
 
     @classmethod
     def _select_radio_choice(cls, container: Locator, target_text: str):

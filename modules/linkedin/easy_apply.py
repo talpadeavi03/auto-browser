@@ -169,17 +169,22 @@ def apply_to_linkedin_easy_apply(page: Page, job_url: str, job_title: str, compa
 
                 # Close post-apply popup or 'Done' dialog if present and verify submission
                 confirmed = False
-                try:
-                    done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label='Dismiss']").first
-                    if done_btn.is_visible(timeout=3000):
-                        confirmed = True
-                        BrowserManager.safe_click(done_btn)
-                    elif not modal.is_visible(timeout=2000):
-                        confirmed = True
-                    elif page.locator("text='Application sent', text='Application submitted'").first.is_visible(timeout=2000):
-                        confirmed = True
-                except Exception:
-                    pass
+                for _ in range(3):
+                    try:
+                        done_btn = page.locator("button:has-text('Done'), button:has-text('সম্পন্ন'), button[aria-label*='Dismiss' i]").first
+                        if done_btn.is_visible(timeout=1500):
+                            confirmed = True
+                            BrowserManager.safe_click(done_btn)
+                            break
+                        if page.locator("text*='Application sent', text*='Application submitted', text*='was sent to', .artdeco-toast-item").first.is_visible(timeout=1500):
+                            confirmed = True
+                            break
+                        if not modal.is_visible(timeout=1000):
+                            confirmed = True
+                            break
+                    except Exception:
+                        pass
+                    BrowserManager.human_delay(0.8, 1.2)
 
                 if confirmed:
                     status = "SUBMITTED"
@@ -377,6 +382,17 @@ def fill_current_step_fields(page: Page, modal: Locator):
             if has_checked:
                 continue
 
+            # Check if this is a Resume selection group (LinkedIn presents saved resumes as radio cards)
+            if any(w in question_text for w in ["resume", "cv", "choose a resume", "select resume", "upload resume"]):
+                first_resume_opt = group.locator("div[role='radio'], input[type='radio'], label").first
+                if first_resume_opt.is_visible():
+                    try:
+                        first_resume_opt.scroll_into_view_if_needed()
+                        first_resume_opt.click()
+                    except Exception:
+                        pass
+                    continue
+
             # Determine desired choice (Yes vs No or custom option)
             target_choice = "Yes"
             if "sponsorship" in question_text or "visa" in question_text:
@@ -384,11 +400,14 @@ def fill_current_step_fields(page: Page, modal: Locator):
             elif "criminal" in question_text or "felony" in question_text:
                 target_choice = "No"
             elif ai_assistant.is_active:
-                options = [lbl.inner_text().strip() for lbl in group.locator("div[role='radio'], label, p").all() if lbl.inner_text().strip() in ["Yes", "No"]]
-                if options:
-                    ai_choice = ai_assistant.answer_question(question_text, field_type="radio", options=options)
-                    if ai_choice:
-                        target_choice = ai_choice
+                # Sanitize question text
+                clean_q = question_text.strip()
+                if len(clean_q) >= 4 and clean_q.lower() not in ["pdf", "doc", "docx", "file", "upload"]:
+                    options = [lbl.inner_text().strip() for lbl in group.locator("div[role='radio'], label, p").all() if lbl.inner_text().strip() in ["Yes", "No"]]
+                    if options:
+                        ai_choice = ai_assistant.answer_question(clean_q, field_type="radio", options=options)
+                        if ai_choice:
+                            target_choice = ai_choice
 
             # Click the matching radio or container
             target_elem = group.locator(f"div[role='radio']:has-text('{target_choice}'), label:has-text('{target_choice}'), p:has-text('{target_choice}')").first
