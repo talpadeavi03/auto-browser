@@ -245,10 +245,17 @@ class BrowserManager:
             log.info("[bold green]✓ Loaded dedicated LINKEDIN_LI_AT session cookie from environment![/bold green]")
 
         # Check for dedicated NAUKRI_AUTH_COOKIE secret (can be pasted directly in GitHub Secrets)
-        direct_nauk_at = (os.getenv("NAUKRI_AUTH_COOKIE") or os.getenv("NAUKRI_AT") or "").strip()
+        direct_nauk_at = (
+            os.getenv("NAUKRI_AUTH_COOKIE")
+            or os.getenv("NAUKRI_AT")
+            or os.getenv("NAUK_AT")
+            or os.getenv("nauk_at")
+            or os.getenv("naukri_auth_cookie")
+            or ""
+        ).strip().strip('"\'')
         if direct_nauk_at:
             if "nauk_at=" in direct_nauk_at:
-                direct_nauk_at = direct_nauk_at.split("nauk_at=")[-1].split(";")[0].strip()
+                direct_nauk_at = direct_nauk_at.split("nauk_at=")[-1].split(";")[0].strip().strip('"\'')
             cookies_to_load = [c for c in cookies_to_load if "naukri" not in c.get("domain", "").lower()]
             cookies_to_load.append({
                 "name": "nauk_at",
@@ -267,7 +274,7 @@ class BrowserManager:
                 "secure": False,
                 "sameSite": "Lax"
             })
-            log.info("[bold green]✓ Loaded dedicated NAUKRI_AUTH_COOKIE session cookie from environment![/bold green]")
+            log.info("[bold green]✓ Loaded dedicated NAUKRI_AUTH_COOKIE (nauk_at) session cookie from environment![/bold green]")
 
         if cookies_to_load:
             try:

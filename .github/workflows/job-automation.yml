@@ -164,7 +164,7 @@ jobs:
           LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
           NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME || secrets.NAUKRI_USERNAM }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
-          NAUKRI_AUTH_COOKIE: ${{ secrets.NAUKRI_AUTH_COOKIE || secrets.NAUKRI_AT }}
+          NAUKRI_AUTH_COOKIE: ${{ secrets.NAUKRI_AUTH_COOKIE || secrets.NAUKRI_AT || secrets.NAUK_AT || secrets.nauk_at || secrets.naukri_auth_cookie }}
           GMAIL_USER: ${{ secrets.GMAIL_USER || 'talpadeavi0303@gmail.com' }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

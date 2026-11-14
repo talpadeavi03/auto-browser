@@ -109,7 +109,7 @@ jobs:
           AUTH_STORAGE_STATE: ${{ secrets.AUTH_STORAGE_STATE }}
           NAUKRI_USERNAME: ${{ secrets.NAUKRI_USERNAME || secrets.NAUKRI_USERNAM }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
-          NAUKRI_AUTH_COOKIE: ${{ secrets.NAUKRI_AUTH_COOKIE || secrets.NAUKRI_AT }}
+          NAUKRI_AUTH_COOKIE: ${{ secrets.NAUKRI_AUTH_COOKIE || secrets.NAUKRI_AT || secrets.NAUK_AT || secrets.nauk_at || secrets.naukri_auth_cookie }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
