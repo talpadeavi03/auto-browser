@@ -37,8 +37,11 @@ profile:
   disability_status: "No"
   years_of_experience: 3.6
   current_salary_lpa: "4.5"
-  expected_salary_lpa: "8.5"
-  notice_period_days: "Immediate Joiner"
+  current_ctc: 450000
+  expected_salary_lpa: "7.5"
+  expected_ctc: 750000
+  notice_period_days: "Immediate joiner (0 days)"
+  availability: "Immediate"
   require_visa_sponsorship: false
   authorized_to_work: true
   resume_path: "data/resumes/AT_26_AI.pdf"

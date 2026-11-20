@@ -220,10 +220,10 @@ Candidate Background:
 - Degree: {settings.profile.degree}
 - Primary Skills: AWS, Azure, GCP, Kubernetes, Docker, Terraform, CI/CD (GitHub Actions, GitLab CI, Jenkins), Linux Administration, Python, Helm, Ansible, DevSecOps, MLOps
 - Total Experience: {settings.profile.years_of_experience} years
-- Notice Period: {settings.profile.notice_period_days}{' days' if isinstance(settings.profile.notice_period_days, (int, float)) else ''} (Immediate / Quick joiner)
+- Notice Period: 0 days (Immediate joiner (0 days) / Immediate)
 - Current Location: {settings.profile.current_location} (City: {settings.profile.city}, State: {settings.profile.state}, Country: {settings.profile.country})
-- Current Salary: {settings.profile.current_salary_lpa} LPA
-- Expected Salary: {settings.profile.expected_salary_lpa} LPA
+- Current Salary: 4.5 LPA (₹4,50,000 INR per year)
+- Expected Salary: 7.5 LPA (₹7,50,000 INR per year)
 - Visa / Sponsorship: Legally authorized to work, requires sponsorship = {settings.profile.require_visa_sponsorship}
 - Comfortable working in: Pune, Bengaluru, Hybrid, or Remote
 """
@@ -307,8 +307,13 @@ Candidate Background:
                 return "Extensive experience designing, securing, and automating scalable cloud infrastructure on AWS using Terraform, Docker, and Kubernetes."
             return "Passionate DevOps Engineer with 3.6 years of hands-on experience in AWS, Kubernetes, Terraform, Docker, and CI/CD automation."
 
+        if "availability" in q or "available to join" in q or "available" in q:
+            return "Immediate"
+
         if "notice" in q or "how soon" in q or "joining" in q:
-            return "0" if ("day" in q or field_type == "number") else "Immediate Joiner"
+            if "day" in q or field_type == "number":
+                return "0"
+            return "Immediate joiner (0 days)"
 
         if "experience" in q or "years" in q or "duration" in q:
             try:
@@ -318,9 +323,13 @@ Candidate Background:
             return str(exp_num) if (field_type == "number" or "whole number" in q) else str(settings.profile.years_of_experience)
 
         if "current ctc" in q or "current salary" in q or "present ctc" in q:
+            if any(k in q for k in ["rupee", "annual", "inr", "amount", "whole"]) or "00" in q or field_type == "number":
+                return "450000"
             return str(settings.profile.current_salary_lpa)
 
-        if "expected ctc" in q or "expected salary" in q:
+        if "expected ctc" in q or "expected salary" in q or "desired compensation" in q or "salary expectation" in q:
+            if any(k in q for k in ["rupee", "annual", "inr", "amount", "whole"]) or "00" in q or field_type == "number":
+                return "750000"
             return str(settings.profile.expected_salary_lpa)
 
         if "sponsorship" in q or "visa" in q:

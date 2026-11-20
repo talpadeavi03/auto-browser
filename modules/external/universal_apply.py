@@ -371,23 +371,20 @@ class UniversalATSApplier:
                     cls._safe_fill(inp, val)
             elif any(k in field_context for k in ["expected salary", "expected ctc", "desired compensation", "salary expectation"]):
                 val = str(settings.profile.expected_salary_lpa)
-                if "annual" in field_context or "amount" in field_context:
-                    cls._safe_fill(inp, "850000" if "00" in placeholder else val)
+                if "annual" in field_context or "amount" in field_context or "rupee" in field_context or "inr" in field_context:
+                    cls._safe_fill(inp, "750000" if "00" in placeholder else val)
                 else:
                     cls._safe_fill(inp, val)
             # Notice Period / Availability (must NOT match date of joining)
             elif any(k in field_context for k in ["notice period", "availability", "available to join", "days to join", "how soon can you start"]):
                 if "date" in field_context or "dob" in field_context:
                     continue
-                val = str(settings.profile.notice_period_days)
-                if "day" in field_context or "availability" in field_context:
-                    if "immediate" in val.lower():
-                        cls._safe_fill(inp, "0")
-                    else:
-                        digits = "".join(filter(str.isdigit, val))
-                        cls._safe_fill(inp, digits or "0")
+                if "day" in field_context or inp_type == "number":
+                    cls._safe_fill(inp, "0")
+                elif "availab" in field_context or "how soon" in field_context:
+                    cls._safe_fill(inp, "Immediate")
                 else:
-                    cls._safe_fill(inp, val)
+                    cls._safe_fill(inp, "Immediate joiner (0 days)")
             # Total Experience Years
             elif any(k in field_context for k in ["years of experience", "total experience", "how many years", "workexperience.years"]):
                 cls._safe_fill(inp, str(settings.profile.years_of_experience))

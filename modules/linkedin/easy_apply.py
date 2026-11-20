@@ -336,19 +336,16 @@ def fill_current_step_fields(page: Page, modal: Locator):
             if "how many years" in label_lower or "total experience" in label_lower or "experience" in label_lower:
                 inp.fill(str(settings.profile.years_of_experience))
             elif "current ctc" in label_lower or "current salary" in label_lower:
-                inp.fill(str(settings.profile.current_salary_lpa))
-            elif "expected ctc" in label_lower or "expected salary" in label_lower:
-                inp.fill(str(settings.profile.expected_salary_lpa))
-            elif "how soon" in label_lower or "notice" in label_lower or "days" in label_lower or "যোগদান" in label_lower:
-                val = str(settings.profile.notice_period_days)
-                if "day" in label_lower or "দিন" in label_lower:
-                    if "immediate" in val.lower():
-                        inp.fill("0")
-                    else:
-                        digits = "".join(filter(str.isdigit, val))
-                        inp.fill(digits or "0")
+                inp.fill("450000" if any(k in label_lower for k in ["rupee", "annual", "amount"]) or "00" in (inp.get_attribute("placeholder") or "") else str(settings.profile.current_salary_lpa))
+            elif "expected ctc" in label_lower or "expected salary" in label_lower or "desired compensation" in label_lower:
+                inp.fill("750000" if any(k in label_lower for k in ["rupee", "annual", "amount"]) or "00" in (inp.get_attribute("placeholder") or "") else str(settings.profile.expected_salary_lpa))
+            elif "how soon" in label_lower or "notice" in label_lower or "days" in label_lower or "availability" in label_lower or "যোগদান" in label_lower:
+                if "day" in label_lower or "দিন" in label_lower or (inp.get_attribute("type") == "number"):
+                    inp.fill("0")
+                elif "availability" in label_lower or "available" in label_lower:
+                    inp.fill("Immediate")
                 else:
-                    inp.fill(val)
+                    inp.fill("Immediate joiner (0 days)")
             elif "travel time" in label_lower or "commute" in label_lower or "minutes" in label_lower:
                 inp.fill("30")
             elif ai_assistant.is_active and label_text:

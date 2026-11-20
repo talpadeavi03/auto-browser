@@ -355,12 +355,17 @@ def handle_naukri_screening_modal(page: Page) -> bool:
                 val_to_type = ""
                 if "experience" in ctx or "exp" in ctx or "year" in ctx:
                     val_to_type = str(settings.profile.years_of_experience)
-                elif "notice" in ctx or "days" in ctx or "join" in ctx:
-                    val_to_type = str(settings.profile.notice_period_days)
+                elif "notice" in ctx or "days" in ctx or "join" in ctx or "availability" in ctx:
+                    if "day" in ctx:
+                        val_to_type = "0"
+                    elif "availability" in ctx or "available" in ctx:
+                        val_to_type = "Immediate"
+                    else:
+                        val_to_type = "Immediate joiner (0 days)"
                 elif "expected" in ctx or "ctc" in ctx or "salary" in ctx:
-                    val_to_type = str(settings.profile.expected_salary_lpa)
+                    val_to_type = "750000" if any(k in ctx for k in ["rupee", "annual", "inr"]) or "00" in placeholder else str(settings.profile.expected_salary_lpa)
                 elif "current ctc" in ctx or "current salary" in ctx:
-                    val_to_type = str(settings.profile.current_salary_lpa)
+                    val_to_type = "450000" if any(k in ctx for k in ["rupee", "annual", "inr"]) or "00" in placeholder else str(settings.profile.current_salary_lpa)
                 elif "location" in ctx or "city" in ctx:
                     val_to_type = settings.profile.location or "Pune"
                 elif ai_assistant.is_active and last_question:
